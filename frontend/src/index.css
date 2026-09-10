@@ -1,0 +1,314 @@
+@import "tailwindcss";
+
+/* =========================================================
+   GLOBAL RESET
+========================================================= */
+
+* {
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    margin: 0;
+    min-width: 320px;
+    min-height: 100vh;
+
+    font-family:
+        Inter,
+        ui-sans-serif,
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+
+    color: #1f2937;
+
+    background:
+        radial-gradient(
+            circle at 10% 10%,
+            rgba(251, 146, 60, 0.20),
+            transparent 30%
+        ),
+        radial-gradient(
+            circle at 90% 20%,
+            rgba(249, 115, 22, 0.14),
+            transparent 30%
+        ),
+        radial-gradient(
+            circle at 50% 100%,
+            rgba(234, 88, 12, 0.12),
+            transparent 35%
+        ),
+        linear-gradient(
+            135deg,
+            #fff7ed 0%,
+            #f8fafc 45%,
+            #fff7ed 100%
+        );
+
+    background-attachment: fixed;
+}
+
+/* =========================================================
+   SELECTION
+========================================================= */
+
+::selection {
+    background: rgba(249, 115, 22, 0.25);
+    color: #111827;
+}
+
+/* =========================================================
+   SCROLLBAR
+========================================================= */
+
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(249, 115, 22, 0.45);
+    border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(249, 115, 22, 0.70);
+}
+
+/* =========================================================
+   GLASS UTILITIES
+========================================================= */
+
+.glass {
+    background: rgba(255, 255, 255, 0.55);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+
+    border: 1px solid rgba(255, 255, 255, 0.65);
+
+    box-shadow:
+        0 8px 32px rgba(15, 23, 42, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.70);
+}
+
+.glass-strong {
+    background: rgba(255, 255, 255, 0.68);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+
+    border: 1px solid rgba(255, 255, 255, 0.75);
+
+    box-shadow:
+        0 12px 40px rgba(15, 23, 42, 0.10),
+        inset 0 1px 0 rgba(255, 255, 255, 0.85);
+}
+
+.glass-dark {
+    background: rgba(17, 24, 39, 0.72);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+
+    border: 1px solid rgba(255, 255, 255, 0.12);
+
+    box-shadow:
+        0 12px 40px rgba(0, 0, 0, 0.20),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* =========================================================
+   GLASS INPUT
+========================================================= */
+
+.glass-input {
+    width: 100%;
+
+    background: rgba(255, 255, 255, 0.55);
+
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+
+    border: 1px solid rgba(255, 255, 255, 0.70);
+
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.75),
+        0 4px 16px rgba(15, 23, 42, 0.04);
+
+    outline: none;
+
+    transition:
+        border-color 0.2s ease,
+        box-shadow 0.2s ease,
+        background 0.2s ease;
+}
+
+.glass-input:focus {
+    background: rgba(255, 255, 255, 0.75);
+
+    border-color: rgba(249, 115, 22, 0.55);
+
+    box-shadow:
+        0 0 0 3px rgba(249, 115, 22, 0.10),
+        0 6px 20px rgba(15, 23, 42, 0.06);
+}
+
+/* =========================================================
+   GLASS BUTTON
+========================================================= */
+
+.glass-button {
+    background: rgba(255, 255, 255, 0.50);
+
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+
+    border: 1px solid rgba(255, 255, 255, 0.70);
+
+    box-shadow:
+        0 6px 20px rgba(15, 23, 42, 0.07),
+        inset 0 1px 0 rgba(255, 255, 255, 0.75);
+
+    transition:
+        transform 0.2s ease,
+        box-shadow 0.2s ease,
+        background 0.2s ease;
+}
+
+.glass-button:hover {
+    background: rgba(255, 255, 255, 0.70);
+
+    transform: translateY(-1px);
+
+    box-shadow:
+        0 10px 26px rgba(15, 23, 42, 0.10),
+        inset 0 1px 0 rgba(255, 255, 255, 0.85);
+}
+
+.glass-button:active {
+    transform: translateY(0);
+}
+
+/* =========================================================
+   ORANGE GLASS BUTTON
+========================================================= */
+
+.glass-orange {
+    background: rgba(249, 115, 22, 0.82);
+
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+
+    border: 1px solid rgba(255, 255, 255, 0.35);
+
+    color: white;
+
+    box-shadow:
+        0 8px 24px rgba(249, 115, 22, 0.25),
+        inset 0 1px 0 rgba(255, 255, 255, 0.30);
+
+    transition:
+        transform 0.2s ease,
+        background 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.glass-orange:hover {
+    background: rgba(234, 88, 12, 0.90);
+
+    transform: translateY(-1px);
+
+    box-shadow:
+        0 12px 30px rgba(249, 115, 22, 0.30),
+        inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+/* =========================================================
+   GLASS CARD HOVER
+========================================================= */
+
+.glass-hover {
+    transition:
+        transform 0.25s ease,
+        box-shadow 0.25s ease,
+        background 0.25s ease;
+}
+
+.glass-hover:hover {
+    transform: translateY(-3px);
+
+    box-shadow:
+        0 18px 45px rgba(15, 23, 42, 0.12),
+        inset 0 1px 0 rgba(255, 255, 255, 0.80);
+}
+
+/* =========================================================
+   FLOATING BACKGROUND ORBS
+========================================================= */
+
+.glass-orb {
+    position: fixed;
+
+    width: 260px;
+    height: 260px;
+
+    border-radius: 50%;
+
+    pointer-events: none;
+
+    filter: blur(70px);
+
+    opacity: 0.30;
+
+    z-index: -1;
+}
+
+.glass-orb-orange {
+    background: rgba(249, 115, 22, 0.35);
+}
+
+.glass-orb-yellow {
+    background: rgba(251, 191, 36, 0.25);
+}
+
+/* =========================================================
+   COMMON ANIMATION
+========================================================= */
+
+@keyframes glassFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.glass-page {
+    animation: glassFadeIn 0.35s ease-out;
+}
+
+/* =========================================================
+   REDUCED MOTION
+========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
