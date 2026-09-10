@@ -2,6 +2,16 @@ const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
+const isConfiguredAdmin = (email) => {
+    const adminEmail = process.env.ADMIN_EMAIL
+        ?.trim()
+        .toLowerCase();
+
+    return Boolean(
+        adminEmail && email === adminEmail
+    );
+};
+
 const registerUser = async (req, res) => {
     try {
         const { name, email, password } = req.body;
@@ -14,8 +24,14 @@ const registerUser = async (req, res) => {
             });
         }
 
+        const normalizedEmail = email
+            .trim()
+            .toLowerCase();
+
         // Check if user already exists
-        const existingUser = await User.findOne({ email });
+        const existingUser = await User.findOne({
+            email: normalizedEmail
+        });
 
         if (existingUser) {
             return res.status(400).json({
@@ -30,8 +46,11 @@ const registerUser = async (req, res) => {
         // Create user
         const user = await User.create({
             name,
-            email,
-            password: hashedPassword
+            email: normalizedEmail,
+            password: hashedPassword,
+            role: isConfiguredAdmin(normalizedEmail)
+                ? "admin"
+                : "user"
         });
 
         res.status(201).json({
@@ -40,7 +59,8 @@ const registerUser = async (req, res) => {
             user: {
                 id: user._id,
                 name: user.name,
-                email: user.email
+                email: user.email,
+                role: user.role
             }
         });
 
@@ -66,8 +86,14 @@ const loginUser = async (req, res) => {
             });
         }
 
+        const normalizedEmail = email
+            .trim()
+            .toLowerCase();
+
         // Find user by email
-        const user = await User.findOne({ email });
+        const user = await User.findOne({
+            email: normalizedEmail
+        });
 
         if (!user) {
             return res.status(401).json({
@@ -89,10 +115,21 @@ const loginUser = async (req, res) => {
             });
         }
 
+        // Promote only the server-configured account.
+        // Clients cannot request an admin role themselves.
+        if (
+            isConfiguredAdmin(user.email) &&
+            user.role !== "admin"
+        ) {
+            user.role = "admin";
+            await user.save();
+        }
+
         // Create JWT
         const token = jwt.sign(
             {
-                userId: user._id
+                userId: user._id,
+                role: user.role
             },
             process.env.JWT_SECRET,
             {
@@ -107,7 +144,8 @@ const loginUser = async (req, res) => {
             user: {
                 id: user._id,
                 name: user.name,
-                email: user.email
+                email: user.email,
+                role: user.role
             }
         });
 

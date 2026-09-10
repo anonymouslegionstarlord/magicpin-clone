@@ -35,7 +35,10 @@ const createProduct = async (req, res) => {
         }
 
         // Check whether logged-in user owns the store
-        if (store.owner.toString() !== req.userId.toString()) {
+        if (
+            req.userRole !== "admin" &&
+            store.owner.toString() !== req.userId.toString()
+        ) {
             return res.status(403).json({
                 success: false,
                 message: "You are not the owner of this store"
@@ -112,7 +115,10 @@ const updateProduct = async (req, res) => {
     }
 
     // Check store ownership
-    if (product.store.owner.toString() !== req.userId.toString()) {
+    if (
+      req.userRole !== "admin" &&
+      product.store.owner.toString() !== req.userId.toString()
+    ) {
       return res.status(403).json({
         success: false,
         message: "You are not the owner of this store"
@@ -199,7 +205,10 @@ const deleteProduct = async (req, res) => {
     }
 
     // Check store ownership
-    if (product.store.owner.toString() !== req.userId.toString()) {
+    if (
+      req.userRole !== "admin" &&
+      product.store.owner.toString() !== req.userId.toString()
+    ) {
       return res.status(403).json({
         success: false,
         message: "You are not the owner of this store"
@@ -242,7 +251,10 @@ const toggleProductAvailability = async (req, res) => {
     }
 
     // Check store ownership
-    if (product.store.owner.toString() !== req.userId.toString()) {
+    if (
+      req.userRole !== "admin" &&
+      product.store.owner.toString() !== req.userId.toString()
+    ) {
       return res.status(403).json({
         success: false,
         message: "You are not the owner of this store"

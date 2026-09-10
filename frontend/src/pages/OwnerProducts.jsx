@@ -77,15 +77,20 @@ const OwnerProducts = () => {
                     payload._id ||
                     payload.userId;
 
-                // Only owner's stores
+                const isAdmin =
+                    payload.role === "admin";
+
+                // Admins manage all stores; owners manage their own.
                 const ownerStores =
-                    allStores.filter(
-                        (store) =>
-                            store.owner?._id?.toString() ===
-                                userId?.toString() ||
-                            store.owner?.toString() ===
-                                userId?.toString()
-                    );
+                    isAdmin
+                        ? allStores
+                        : allStores.filter(
+                            (store) =>
+                                store.owner?._id?.toString() ===
+                                    userId?.toString() ||
+                                store.owner?.toString() ===
+                                    userId?.toString()
+                        );
 
                 setStores(ownerStores);
 

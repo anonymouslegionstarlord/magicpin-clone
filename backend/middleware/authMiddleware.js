@@ -1,6 +1,7 @@
 const jwt = require("jsonwebtoken");
+const User = require("../models/User");
 
-const protect = (req, res, next) => {
+const protect = async (req, res, next) => {
     try {
         const authHeader = req.headers.authorization;
 
@@ -18,7 +19,19 @@ const protect = (req, res, next) => {
             process.env.JWT_SECRET
         );
 
-        req.userId = decoded.userId;
+        const user = await User.findById(
+            decoded.userId
+        ).select("_id role");
+
+        if (!user) {
+            return res.status(401).json({
+                success: false,
+                message: "User account no longer exists"
+            });
+        }
+
+        req.userId = user._id;
+        req.userRole = user.role || "user";
 
         next();
 

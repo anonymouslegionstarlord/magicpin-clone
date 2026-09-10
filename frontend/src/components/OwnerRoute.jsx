@@ -17,17 +17,26 @@ function OwnerRoute({ children }) {
                     return;
                 }
 
-                // Check stores owned by current user
-                const response = await API.get("/stores/my", {
-                    headers: {
-                        Authorization: `Bearer ${token}`
-                    }
-                });
+                const headers = {
+                    Authorization: `Bearer ${token}`
+                };
 
-                const stores = response.data.stores || [];
+                const [profileResponse, storesResponse] =
+                    await Promise.all([
+                        API.get("/users/me", { headers }),
+                        API.get("/stores/my", { headers })
+                    ]);
 
-                // User is an owner if they have at least one store
-                setIsOwner(stores.length > 0);
+                const stores =
+                    storesResponse.data.stores || [];
+
+                const isAdmin =
+                    profileResponse.data.user?.role ===
+                    "admin";
+
+                setIsOwner(
+                    isAdmin || stores.length > 0
+                );
 
             } catch (error) {
                 console.log("Owner verification error:", error);

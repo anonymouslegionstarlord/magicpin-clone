@@ -298,9 +298,12 @@ const getStoresByCategory = async (req, res) => {
 
 const getMyStores = async (req, res) => {
     try {
-        const stores = await Store.find({
-            owner: req.userId
-        });
+        const storeFilter =
+            req.userRole === "admin"
+                ? {}
+                : { owner: req.userId };
+
+        const stores = await Store.find(storeFilter);
 
         res.status(200).json({
             success: true,
@@ -334,6 +337,7 @@ const updateStore = async (req, res) => {
 
         // Verify store ownership
         if (
+            req.userRole !== "admin" &&
             store.owner.toString() !==
             req.userId.toString()
         ) {

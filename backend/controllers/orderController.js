@@ -15,9 +15,14 @@ const getStoreOrders = async (req, res) => {
         // An owner should still be able to see/manage
         // existing orders even if the store is closed.
 
-        const stores = await Store.find({
-            owner: req.userId
-        }).select("_id");
+        const storeFilter =
+            req.userRole === "admin"
+                ? {}
+                : { owner: req.userId };
+
+        const stores = await Store.find(
+            storeFilter
+        ).select("_id");
 
         const storeIds = stores.map(
             (store) => store._id
@@ -440,6 +445,7 @@ const updateOrderStatus = async (req, res) => {
 
         // Check ownership
         if (
+            req.userRole !== "admin" &&
             order.store.owner.toString() !==
             req.userId.toString()
         ) {
