@@ -8,7 +8,8 @@ const {
     getMyOrders,
     getOrderById,
     updateOrderStatus,
-    getStoreOrders
+    getStoreOrders,
+    clearAllOrders
 } = require("../controllers/orderController");
 
 const router = express.Router();
@@ -46,6 +47,13 @@ router.get(
     protect,
     requireAdmin,
     getStoreOrders
+);
+
+router.delete(
+    "/store",
+    protect,
+    requireAdmin,
+    clearAllOrders
 );
 
 

@@ -7,7 +7,9 @@ function OwnerOrders() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState("");
+    const [success, setSuccess] = useState("");
     const [updatingOrder, setUpdatingOrder] = useState(null);
+    const [clearingOrders, setClearingOrders] = useState(false);
     const [filter, setFilter] = useState("all");
 
     // ==========================================
@@ -183,6 +185,7 @@ function OwnerOrders() {
             }
 
             setError("");
+            setSuccess("");
 
             const token =
                 localStorage.getItem("token");
@@ -305,6 +308,7 @@ function OwnerOrders() {
         try {
             setUpdatingOrder(orderId);
             setError("");
+            setSuccess("");
 
             const token =
                 localStorage.getItem("token");
@@ -354,6 +358,72 @@ function OwnerOrders() {
 
         } finally {
             setUpdatingOrder(null);
+        }
+    };
+
+
+    // ==========================================
+    // CLEAR ALL ORDERS
+    // ==========================================
+
+    const handleClearAllOrders = async () => {
+        if (orders.length === 0) {
+            return;
+        }
+
+        const confirmed = window.confirm(
+            `Permanently delete all ${orders.length} orders? This action cannot be undone.`
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        try {
+            setClearingOrders(true);
+            setError("");
+            setSuccess("");
+
+            const token =
+                localStorage.getItem("token");
+
+            if (!token) {
+                setError(
+                    "You are not logged in."
+                );
+                return;
+            }
+
+            const response = await API.delete(
+                "/orders/store",
+                {
+                    headers: {
+                        Authorization:
+                            `Bearer ${token}`
+                    }
+                }
+            );
+
+            setOrders([]);
+            setFilter("all");
+            setSuccess(
+                response.data.message ||
+                "All orders cleared successfully"
+            );
+
+        } catch (error) {
+            console.log(
+                "Clear all orders error:",
+                error
+            );
+
+            setError(
+                error.response?.data?.message ||
+                "Unable to clear orders"
+            );
+
+        } finally {
+            setClearingOrders(false);
         }
     };
 
@@ -536,6 +606,21 @@ function OwnerOrders() {
                         <div className="flex flex-wrap gap-3">
 
                             <button
+                                type="button"
+                                onClick={handleClearAllOrders}
+                                disabled={
+                                    orders.length === 0 ||
+                                    clearingOrders ||
+                                    refreshing
+                                }
+                                className="rounded-xl border border-red-200/70 bg-red-50/70 px-5 py-3 text-sm font-black text-red-700 transition hover:scale-[1.02] hover:bg-red-100/80 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                {clearingOrders
+                                    ? "Clearing..."
+                                    : "🗑 Clear All Orders"}
+                            </button>
+
+                            <button
                                 onClick={() =>
                                     loadOrders(true)
                                 }
@@ -583,6 +668,34 @@ function OwnerOrders() {
 
                                 <p className="mt-1 text-sm text-red-700">
                                     {error}
+                                </p>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+                )}
+
+
+                {success && (
+
+                    <div className="glass mt-6 rounded-2xl border border-green-200/70 bg-green-50/60 p-5">
+
+                        <div className="flex items-start gap-3">
+
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-green-100/70">
+                                ✓
+                            </div>
+
+                            <div>
+
+                                <p className="font-black text-green-800">
+                                    Orders cleared
+                                </p>
+
+                                <p className="mt-1 text-sm text-green-700">
+                                    {success}
                                 </p>
 
                             </div>

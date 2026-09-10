@@ -72,6 +72,35 @@ const getStoreOrders = async (req, res) => {
 
 
 // =====================================================
+// ADMIN - CLEAR ALL ORDERS
+// =====================================================
+
+const clearAllOrders = async (req, res) => {
+    try {
+        const result = await Order.deleteMany({});
+
+        res.status(200).json({
+            success: true,
+            message: "All orders cleared successfully",
+            deletedCount: result.deletedCount
+        });
+
+    } catch (error) {
+
+        console.log(
+            "Clear all orders error:",
+            error
+        );
+
+        res.status(500).json({
+            success: false,
+            message: "Server error"
+        });
+    }
+};
+
+
+// =====================================================
 // CUSTOMER - CREATE ORDER
 // =====================================================
 
@@ -509,5 +538,6 @@ module.exports = {
     getMyOrders,
     getOrderById,
     updateOrderStatus,
-    getStoreOrders
+    getStoreOrders,
+    clearAllOrders
 };
