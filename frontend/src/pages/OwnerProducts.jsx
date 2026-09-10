@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import {
+    useNavigate,
+    Link,
+    useSearchParams
+} from "react-router-dom";
 import API from "../api/api";
 import { prepareImage } from "../utils/imageUpload";
 
@@ -14,6 +18,9 @@ const emptyForm = {
 
 const OwnerProducts = () => {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const requestedStoreId = searchParams.get("store") || "";
+    const requestedAction = searchParams.get("action") || "";
 
     const [stores, setStores] = useState([]);
     const [selectedStore, setSelectedStore] = useState("");
@@ -97,9 +104,19 @@ const OwnerProducts = () => {
                 setStores(ownerStores);
 
                 if (ownerStores.length > 0) {
-                    setSelectedStore(
-                        ownerStores[0]._id
+                    const requestedStore = ownerStores.find(
+                        (store) => store._id === requestedStoreId
                     );
+                    const storeToSelect =
+                        requestedStore || ownerStores[0];
+
+                    setSelectedStore(storeToSelect._id);
+
+                    if (requestedAction === "add") {
+                        setForm(emptyForm);
+                        setEditingProduct(null);
+                        setShowForm(true);
+                    }
                 }
 
             } catch (error) {
@@ -119,7 +136,7 @@ const OwnerProducts = () => {
         };
 
         loadStores();
-    }, [navigate]);
+    }, [navigate, requestedAction, requestedStoreId]);
 
 
     // =====================================================
@@ -137,8 +154,14 @@ const OwnerProducts = () => {
                 setLoadingProducts(true);
                 setError("");
 
+                const token = localStorage.getItem("token");
                 const response = await API.get(
-                    `/products/store/${selectedStore}`
+                    `/products/store/${selectedStore}/manage`,
+                    {
+                        headers: {
+                            Authorization: `Bearer ${token}`
+                        }
+                    }
                 );
 
                 setProducts(

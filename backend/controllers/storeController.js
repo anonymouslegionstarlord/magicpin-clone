@@ -30,6 +30,23 @@ const createStore = async (req, res) => {
             });
         }
 
+        const normalizedLongitude = Number(longitude);
+        const normalizedLatitude = Number(latitude);
+
+        if (
+            !Number.isFinite(normalizedLongitude) ||
+            !Number.isFinite(normalizedLatitude) ||
+            normalizedLongitude < -180 ||
+            normalizedLongitude > 180 ||
+            normalizedLatitude < -90 ||
+            normalizedLatitude > 90
+        ) {
+            return res.status(400).json({
+                success: false,
+                message: "Please provide valid longitude and latitude values"
+            });
+        }
+
         const store = await Store.create({
             name,
             description,
@@ -41,8 +58,8 @@ const createStore = async (req, res) => {
             location: {
                 type: "Point",
                 coordinates: [
-                    longitude,
-                    latitude
+                    normalizedLongitude,
+                    normalizedLatitude
                 ]
             },
 
@@ -184,11 +201,12 @@ const getNearbyStores = async (req, res) => {
         // Check distance
         if (
             !Number.isFinite(maxDistance) ||
-            maxDistance <= 0
+            maxDistance <= 0 ||
+            maxDistance > 25000
         ) {
             return res.status(400).json({
                 success: false,
-                message: "Distance must be a positive number"
+                message: "Distance must be between 1 and 25000 metres"
             });
         }
 
@@ -311,12 +329,16 @@ const getStoresByCategory = async (req, res) => {
 
 const getMyStores = async (req, res) => {
     try {
-        const storeFilter =
-            req.userRole === "admin"
+        const storeFilter = {
+            isArchived: { $ne: true },
+            ...(req.userRole === "admin"
                 ? {}
-                : { owner: req.userId };
+                : { owner: req.userId })
+        };
 
-        const stores = await Store.find(storeFilter);
+        const stores = await Store.find(storeFilter).sort({
+            createdAt: -1
+        });
 
         res.status(200).json({
             success: true,
@@ -339,7 +361,10 @@ const updateStore = async (req, res) => {
     try {
         const { id } = req.params;
 
-        const store = await Store.findById(id);
+        const store = await Store.findOne({
+            _id: id,
+            isArchived: { $ne: true }
+        });
 
         if (!store) {
             return res.status(404).json({
@@ -510,6 +535,39 @@ const updateStore = async (req, res) => {
     }
 };
 
+const archiveStore = async (req, res) => {
+    try {
+        const store = await Store.findOne({
+            _id: req.params.id,
+            isArchived: { $ne: true }
+        });
+
+        if (!store) {
+            return res.status(404).json({
+                success: false,
+                message: "Restaurant not found"
+            });
+        }
+
+        store.isActive = false;
+        store.isArchived = true;
+        store.archivedAt = new Date();
+        await store.save();
+
+        res.status(200).json({
+            success: true,
+            message: "Restaurant removed successfully"
+        });
+    } catch (error) {
+        console.log("Archive store error:", error);
+
+        res.status(500).json({
+            success: false,
+            message: "Server error"
+        });
+    }
+};
+
 
 
 
@@ -522,5 +580,6 @@ module.exports = {
     searchStores,
     getStoresByCategory,
     getMyStores,
-    updateStore
+    updateStore,
+    archiveStore
 };

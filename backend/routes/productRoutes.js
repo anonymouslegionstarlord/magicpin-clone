@@ -6,6 +6,7 @@ const requireAdmin = require("../middleware/adminMiddleware");
 const {
     createProduct,
     getProductsByStore,
+    getProductsForAdmin,
     updateProduct,
     deleteProduct,
     toggleProductAvailability
@@ -15,6 +16,12 @@ const router = express.Router();
 
 router.post("/", protect, requireAdmin, createProduct);
 
+router.get(
+    "/store/:storeId/manage",
+    protect,
+    requireAdmin,
+    getProductsForAdmin
+);
 router.get("/store/:storeId", getProductsByStore);
 router.put("/:id", protect, requireAdmin, updateProduct);
 

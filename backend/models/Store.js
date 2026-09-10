@@ -71,6 +71,16 @@ const storeSchema = new mongoose.Schema(
             default: true
         },
 
+        isArchived: {
+            type: Boolean,
+            default: false
+        },
+
+        archivedAt: {
+            type: Date,
+            default: null
+        },
+
         source: {
             provider: {
                 type: String,

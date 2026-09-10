@@ -29,7 +29,10 @@ const createProduct = async (req, res) => {
         }
 
         // Check whether store exists
-        const store = await Store.findById(storeId);
+        const store = await Store.findOne({
+            _id: storeId,
+            isArchived: { $ne: true }
+        });
 
         if (!store) {
             return res.status(404).json({
@@ -86,6 +89,19 @@ const getProductsByStore = async (req, res) => {
     try {
         const { storeId } = req.params;
 
+        const store = await Store.findOne({
+            _id: storeId,
+            isActive: true,
+            isArchived: { $ne: true }
+        });
+
+        if (!store) {
+            return res.status(404).json({
+                success: false,
+                message: "Restaurant is not available"
+            });
+        }
+
         const products = await Product.find({
             store: storeId,
             isAvailable: true
@@ -99,6 +115,41 @@ const getProductsByStore = async (req, res) => {
 
     } catch (error) {
         console.log(error);
+
+        res.status(500).json({
+            success: false,
+            message: "Server error"
+        });
+    }
+};
+
+const getProductsForAdmin = async (req, res) => {
+    try {
+        const { storeId } = req.params;
+
+        const store = await Store.findOne({
+            _id: storeId,
+            isArchived: { $ne: true }
+        });
+
+        if (!store) {
+            return res.status(404).json({
+                success: false,
+                message: "Restaurant not found"
+            });
+        }
+
+        const products = await Product.find({
+            store: storeId
+        }).sort({ createdAt: -1 });
+
+        res.status(200).json({
+            success: true,
+            count: products.length,
+            products
+        });
+    } catch (error) {
+        console.log("Get admin products error:", error);
 
         res.status(500).json({
             success: false,
@@ -307,6 +358,7 @@ const toggleProductAvailability = async (req, res) => {
 module.exports = {
     createProduct,
     getProductsByStore,
+    getProductsForAdmin,
     updateProduct,
     deleteProduct,
     toggleProductAvailability

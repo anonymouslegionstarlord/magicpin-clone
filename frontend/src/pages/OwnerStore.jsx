@@ -1,119 +1,230 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import API from "../api/api";
 import { prepareImage } from "../utils/imageUpload";
 
+const emptyStoreForm = {
+    name: "",
+    description: "",
+    category: "Restaurant",
+    address: "",
+    phone: "",
+    image: "",
+    longitude: "",
+    latitude: ""
+};
+
 const getStoreFormData = (store) => ({
-    name: store.name || "",
-    description: store.description || "",
-    category: store.category || "",
-    address: store.address || "",
-    phone: store.phone || "",
-    image: store.image || "",
-    longitude: store.location?.coordinates?.[0] ?? "",
-    latitude: store.location?.coordinates?.[1] ?? ""
+    name: store?.name || "",
+    description: store?.description || "",
+    category: store?.category || "Restaurant",
+    address: store?.address || "",
+    phone: store?.phone || "",
+    image: store?.image || "",
+    longitude: store?.location?.coordinates?.[0] ?? "",
+    latitude: store?.location?.coordinates?.[1] ?? ""
 });
+
+const getAuthHeaders = () => ({
+    Authorization: `Bearer ${localStorage.getItem("token")}`
+});
+
+const getLocationErrorMessage = (error) => {
+    if (error?.code === 1) {
+        return "Location permission was denied. Allow location access in your browser and try again.";
+    }
+
+    if (error?.code === 2) {
+        return "Your current location could not be determined.";
+    }
+
+    if (error?.code === 3) {
+        return "Getting your location took too long. Please try again.";
+    }
+
+    return error?.message || "Unable to get your current location.";
+};
+
+const requestBrowserLocation = () =>
+    new Promise((resolve, reject) => {
+        if (!navigator.geolocation) {
+            reject(
+                new Error("Geolocation is not supported by this browser.")
+            );
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            (position) =>
+                resolve({
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude
+                }),
+            reject,
+            {
+                enableHighAccuracy: true,
+                timeout: 12000,
+                maximumAge: 300000
+            }
+        );
+    });
 
 function OwnerStore() {
     const navigate = useNavigate();
 
     const [stores, setStores] = useState([]);
-    const [store, setStore] = useState(null);
-
+    const [selectedStoreId, setSelectedStoreId] = useState("");
+    const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [loadingProducts, setLoadingProducts] = useState(false);
+
+    const [formMode, setFormMode] = useState("");
+    const [formData, setFormData] = useState(emptyStoreForm);
     const [saving, setSaving] = useState(false);
     const [processingImage, setProcessingImage] = useState(false);
-    const [toggling, setToggling] = useState(false);
+    const [removingStore, setRemovingStore] = useState(false);
+    const [removingProduct, setRemovingProduct] = useState("");
+    const [togglingStore, setTogglingStore] = useState(false);
 
     const [error, setError] = useState("");
     const [success, setSuccess] = useState("");
 
-    const [editing, setEditing] = useState(false);
+    const [finderRadius, setFinderRadius] = useState("5000");
+    const [finderLimit, setFinderLimit] = useState("20");
+    const [finderCoordinates, setFinderCoordinates] = useState(null);
+    const [finderResults, setFinderResults] = useState([]);
+    const [findingNearby, setFindingNearby] = useState(false);
+    const [importingNearby, setImportingNearby] = useState(false);
+    const [finderError, setFinderError] = useState("");
 
-    const [formData, setFormData] = useState({
-        name: "",
-        description: "",
-        category: "",
-        address: "",
-        phone: "",
-        image: "",
-        longitude: "",
-        latitude: ""
-    });
+    const selectedStore = stores.find(
+        (item) => item._id === selectedStoreId
+    ) || null;
 
+    const refreshStores = useCallback(
+        async (preferredStoreId = "") => {
+            const token = localStorage.getItem("token");
 
-    // =====================================================
-    // FETCH STORE
-    // =====================================================
+            if (!token) {
+                navigate("/login");
+                return [];
+            }
+
+            const response = await API.get("/stores/my", {
+                headers: getAuthHeaders()
+            });
+            const nextStores = response.data.stores || [];
+
+            setStores(nextStores);
+            setSelectedStoreId((currentStoreId) => {
+                const requestedId = preferredStoreId || currentStoreId;
+                const requestedStoreExists = nextStores.some(
+                    (item) => item._id === requestedId
+                );
+
+                if (requestedStoreExists) {
+                    return requestedId;
+                }
+
+                return nextStores[0]?._id || "";
+            });
+
+            return nextStores;
+        },
+        [navigate]
+    );
 
     useEffect(() => {
-        const fetchStore = async () => {
+        const loadStores = async () => {
             try {
-                const token =
-                    localStorage.getItem("token");
-
-                if (!token) {
-                    navigate("/login");
-                    return;
-                }
-
-                const response =
-                    await API.get("/stores/my", {
-                        headers: {
-                            Authorization:
-                                `Bearer ${token}`
-                        }
-                    });
-
-                const stores =
-                    response.data.stores || [];
-
-                if (stores.length === 0) {
-                    setError(
-                        "You don't have a store yet."
-                    );
-                    return;
-                }
-
-                const currentStore =
-                    stores[0];
-
-                setStores(stores);
-                setStore(currentStore);
-                setFormData(getStoreFormData(currentStore));
-
-            } catch (error) {
-                console.log(
-                    "Owner store error:",
-                    error
-                );
-
+                setError("");
+                await refreshStores();
+            } catch (requestError) {
+                console.log("Load restaurants error:", requestError);
                 setError(
-                    error.response?.data?.message ||
-                    "Failed to load store"
+                    requestError.response?.data?.message ||
+                    "Failed to load restaurants"
                 );
-
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchStore();
-    }, [navigate]);
+        loadStores();
+    }, [refreshStores]);
 
+    useEffect(() => {
+        const loadProducts = async () => {
+            if (!selectedStoreId) {
+                setProducts([]);
+                return;
+            }
 
-    // =====================================================
-    // FORM CHANGE
-    // =====================================================
+            try {
+                setLoadingProducts(true);
+                const response = await API.get(
+                    `/products/store/${selectedStoreId}/manage`,
+                    { headers: getAuthHeaders() }
+                );
+
+                setProducts(response.data.products || []);
+            } catch (requestError) {
+                console.log("Load restaurant menu error:", requestError);
+                setProducts([]);
+                setError(
+                    requestError.response?.data?.message ||
+                    "Failed to load restaurant menu"
+                );
+            } finally {
+                setLoadingProducts(false);
+            }
+        };
+
+        loadProducts();
+    }, [selectedStoreId]);
+
+    const clearMessages = () => {
+        setError("");
+        setSuccess("");
+    };
+
+    const startCreate = () => {
+        clearMessages();
+        setFormMode("create");
+        setFormData({
+            ...emptyStoreForm,
+            longitude: finderCoordinates?.longitude ?? "",
+            latitude: finderCoordinates?.latitude ?? ""
+        });
+        window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+
+    const startEdit = () => {
+        if (!selectedStore) {
+            return;
+        }
+
+        clearMessages();
+        setFormMode("edit");
+        setFormData(getStoreFormData(selectedStore));
+        window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+
+    const cancelForm = () => {
+        setFormMode("");
+        setFormData(
+            selectedStore
+                ? getStoreFormData(selectedStore)
+                : emptyStoreForm
+        );
+        clearMessages();
+    };
 
     const handleChange = (event) => {
-        const {
-            name,
-            value
-        } = event.target;
+        const { name, value } = event.target;
 
-        setFormData((previous) => ({
-            ...previous,
+        setFormData((current) => ({
+            ...current,
             [name]: value
         }));
     };
@@ -128,211 +239,173 @@ function OwnerStore() {
 
         try {
             setProcessingImage(true);
-            setError("");
-            setSuccess("");
+            clearMessages();
 
             const image = await prepareImage(file, {
                 maxWidth: 1600,
                 maxHeight: 1000
             });
 
-            setFormData((previous) => ({
-                ...previous,
-                image
-            }));
-        } catch (error) {
-            setError(error.message);
+            setFormData((current) => ({ ...current, image }));
+        } catch (imageError) {
+            setError(imageError.message);
         } finally {
             setProcessingImage(false);
         }
     };
 
+    const useCurrentLocationInForm = async () => {
+        try {
+            clearMessages();
+            const coordinates = await requestBrowserLocation();
 
-    // =====================================================
-    // EDIT
-    // =====================================================
-
-    const handleEdit = () => {
-        setError("");
-        setSuccess("");
-        setEditing(true);
-
-        window.scrollTo({
-            top: 0,
-            behavior: "smooth"
-        });
-    };
-
-    const handleStoreSelection = (event) => {
-        const selectedStore = stores.find(
-            (item) => item._id === event.target.value
-        );
-
-        if (!selectedStore) {
-            return;
+            setFinderCoordinates(coordinates);
+            setFormData((current) => ({
+                ...current,
+                latitude: coordinates.latitude.toFixed(6),
+                longitude: coordinates.longitude.toFixed(6)
+            }));
+            setSuccess("Current location added to the restaurant form.");
+        } catch (locationError) {
+            setError(getLocationErrorMessage(locationError));
         }
-
-        setStore(selectedStore);
-        setFormData(getStoreFormData(selectedStore));
-        setEditing(false);
-        setError("");
-        setSuccess("");
     };
-
-
-    // =====================================================
-    // CANCEL
-    // =====================================================
-
-    const handleCancel = () => {
-        if (!store) {
-            return;
-        }
-
-        setFormData(getStoreFormData(store));
-
-        setError("");
-        setSuccess("");
-        setEditing(false);
-    };
-
-
-    // =====================================================
-    // SAVE STORE
-    // =====================================================
 
     const handleSubmit = async (event) => {
         event.preventDefault();
+        clearMessages();
 
-        setError("");
-        setSuccess("");
-        setSaving(true);
+        if (
+            !formData.name.trim() ||
+            !formData.category.trim() ||
+            !formData.address.trim()
+        ) {
+            setError("Restaurant name, category and address are required.");
+            return;
+        }
+
+        const longitude = Number(formData.longitude);
+        const latitude = Number(formData.latitude);
+
+        if (
+            !Number.isFinite(longitude) ||
+            longitude < -180 ||
+            longitude > 180 ||
+            !Number.isFinite(latitude) ||
+            latitude < -90 ||
+            latitude > 90
+        ) {
+            setError("Please provide valid restaurant coordinates.");
+            return;
+        }
+
+        const payload = {
+            name: formData.name.trim(),
+            description: formData.description.trim(),
+            category: formData.category.trim(),
+            address: formData.address.trim(),
+            phone: formData.phone.trim(),
+            image: formData.image.trim(),
+            longitude,
+            latitude
+        };
 
         try {
-            const token =
-                localStorage.getItem("token");
+            setSaving(true);
 
-            const response =
-                await API.put(
-                    `/stores/${store._id}`,
-                    {
-                        name:
-                            formData.name.trim(),
-                        description:
-                            formData.description.trim(),
-                        category:
-                            formData.category.trim(),
-                        address:
-                            formData.address.trim(),
-                        phone:
-                            formData.phone.trim(),
-                        image:
-                            formData.image.trim(),
-                        longitude:
-                            Number(
-                                formData.longitude
-                            ),
-                        latitude:
-                            Number(
-                                formData.latitude
-                            )
-                    },
-                    {
-                        headers: {
-                            Authorization:
-                                `Bearer ${token}`
-                        }
-                    }
+            if (formMode === "create") {
+                const response = await API.post("/stores", payload, {
+                    headers: getAuthHeaders()
+                });
+                const createdStore = response.data.store;
+
+                await refreshStores(createdStore._id);
+                setSuccess("Restaurant added successfully.");
+            } else {
+                const response = await API.put(
+                    `/stores/${selectedStoreId}`,
+                    payload,
+                    { headers: getAuthHeaders() }
                 );
+                const updatedStore = response.data.store;
 
-            const updatedStore =
-                response.data.store;
+                setStores((current) =>
+                    current.map((item) =>
+                        item._id === updatedStore._id
+                            ? updatedStore
+                            : item
+                    )
+                );
+                setSuccess("Restaurant updated successfully.");
+            }
 
-            setStore(updatedStore);
-            setStores((current) =>
-                current.map((item) =>
-                    item._id === updatedStore._id
-                        ? updatedStore
-                        : item
-                )
-            );
-            setFormData(getStoreFormData(updatedStore));
-
-            setEditing(false);
-
-            setSuccess(
-                response.data.message ||
-                "Store updated successfully"
-            );
-
-        } catch (error) {
-            console.log(
-                "Update store error:",
-                error
-            );
-
+            setFormMode("");
+        } catch (requestError) {
+            console.log("Save restaurant error:", requestError);
             setError(
-                error.response?.data?.message ||
-                "Failed to update store"
+                requestError.response?.data?.message ||
+                "Failed to save restaurant"
             );
-
         } finally {
             setSaving(false);
         }
     };
 
-
-    // =====================================================
-    // TOGGLE STORE
-    // =====================================================
-
-    const handleToggleStore = async () => {
-        if (!store) {
+    const handleRemoveStore = async () => {
+        if (!selectedStore) {
             return;
         }
 
-        const newStatus =
-            !store.isActive;
-
-        const confirmationMessage =
-            newStatus
-                ? "Open this store for customers?"
-                : "Close this store? Customers will no longer see it.";
-
-        const confirmed =
-            window.confirm(
-                confirmationMessage
-            );
+        const confirmed = window.confirm(
+            `Remove ${selectedStore.name}? It will disappear from FoodieHub, but existing order history will be preserved.`
+        );
 
         if (!confirmed) {
             return;
         }
 
-        setError("");
-        setSuccess("");
-        setToggling(true);
+        try {
+            setRemovingStore(true);
+            clearMessages();
+
+            const response = await API.delete(
+                `/stores/${selectedStore._id}`,
+                { headers: getAuthHeaders() }
+            );
+            const remainingStores = stores.filter(
+                (item) => item._id !== selectedStore._id
+            );
+
+            setStores(remainingStores);
+            setSelectedStoreId(remainingStores[0]?._id || "");
+            setFormMode("");
+            setSuccess(response.data.message);
+        } catch (requestError) {
+            console.log("Remove restaurant error:", requestError);
+            setError(
+                requestError.response?.data?.message ||
+                "Failed to remove restaurant"
+            );
+        } finally {
+            setRemovingStore(false);
+        }
+    };
+
+    const handleToggleStore = async () => {
+        if (!selectedStore) {
+            return;
+        }
 
         try {
-            const token =
-                localStorage.getItem("token");
-
-            const response =
-                await API.put(
-                    `/stores/${store._id}`,
-                    {
-                        isActive: newStatus
-                    },
-                    {
-                        headers: {
-                            Authorization:
-                                `Bearer ${token}`
-                        }
-                    }
-                );
-
+            setTogglingStore(true);
+            clearMessages();
+            const response = await API.put(
+                `/stores/${selectedStore._id}`,
+                { isActive: !selectedStore.isActive },
+                { headers: getAuthHeaders() }
+            );
             const updatedStore = response.data.store;
 
-            setStore(updatedStore);
             setStores((current) =>
                 current.map((item) =>
                     item._id === updatedStore._id
@@ -340,376 +413,406 @@ function OwnerStore() {
                         : item
                 )
             );
-
             setSuccess(
-                newStatus
-                    ? "Store is now open."
-                    : "Store is now closed."
+                updatedStore.isActive
+                    ? "Restaurant is now visible to customers."
+                    : "Restaurant is now closed to customers."
             );
-
-        } catch (error) {
-            console.log(
-                "Toggle store error:",
-                error
-            );
-
+        } catch (requestError) {
             setError(
-                error.response?.data?.message ||
-                "Failed to update store status"
+                requestError.response?.data?.message ||
+                "Failed to update restaurant status"
             );
-
         } finally {
-            setToggling(false);
+            setTogglingStore(false);
         }
     };
 
+    const handleRemoveProduct = async (product) => {
+        const confirmed = window.confirm(
+            `Remove ${product.name} from this restaurant menu?`
+        );
 
-    // =====================================================
-    // LOADING
-    // =====================================================
+        if (!confirmed) {
+            return;
+        }
+
+        try {
+            setRemovingProduct(product._id);
+            clearMessages();
+            const response = await API.delete(
+                `/products/${product._id}`,
+                { headers: getAuthHeaders() }
+            );
+
+            setProducts((current) =>
+                current.filter((item) => item._id !== product._id)
+            );
+            setSuccess(response.data.message);
+        } catch (requestError) {
+            setError(
+                requestError.response?.data?.message ||
+                "Failed to remove food item"
+            );
+        } finally {
+            setRemovingProduct("");
+        }
+    };
+
+    const handleFindNearby = async () => {
+        try {
+            setFindingNearby(true);
+            setFinderError("");
+            setFinderResults([]);
+
+            const coordinates = await requestBrowserLocation();
+            setFinderCoordinates(coordinates);
+
+            const response = await API.post(
+                "/import/restaurants",
+                {
+                    ...coordinates,
+                    radius: Number(finderRadius),
+                    maxRestaurants: Number(finderLimit),
+                    dryRun: true
+                },
+                { headers: getAuthHeaders() }
+            );
+
+            setFinderResults(response.data.result?.restaurants || []);
+        } catch (requestError) {
+            console.log("Find nearby restaurants error:", requestError);
+            setFinderError(
+                requestError.response?.data?.message ||
+                getLocationErrorMessage(requestError)
+            );
+        } finally {
+            setFindingNearby(false);
+        }
+    };
+
+    const handleImportNearby = async () => {
+        if (!finderCoordinates || finderResults.length === 0) {
+            return;
+        }
+
+        try {
+            setImportingNearby(true);
+            setFinderError("");
+            clearMessages();
+
+            const response = await API.post(
+                "/import/restaurants",
+                {
+                    ...finderCoordinates,
+                    radius: Number(finderRadius),
+                    maxRestaurants: Number(finderLimit),
+                    dryRun: false
+                },
+                { headers: getAuthHeaders() }
+            );
+            const result = response.data.result || {};
+
+            await refreshStores();
+            setSuccess(
+                `${result.storesImported || 0} nearby restaurants added or refreshed. ${result.productsImported || 0} authorized menu items imported.`
+            );
+        } catch (requestError) {
+            console.log("Import nearby restaurants error:", requestError);
+            setFinderError(
+                requestError.response?.data?.message ||
+                "Failed to import nearby restaurants"
+            );
+        } finally {
+            setImportingNearby(false);
+        }
+    };
 
     if (loading) {
         return (
-            <div className="relative min-h-screen overflow-hidden px-4 py-16">
-
-                <div className="pointer-events-none fixed -left-40 top-20 -z-10 h-96 w-96 rounded-full bg-orange-400/15 blur-3xl" />
-
-                <div className="pointer-events-none fixed -right-40 bottom-10 -z-10 h-96 w-96 rounded-full bg-orange-300/10 blur-3xl" />
-
-                <div className="mx-auto max-w-6xl">
-
-                    <div className="glass-strong rounded-[2rem] p-16 text-center shadow-xl">
-
-                        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-orange-100/70 text-4xl">
-                            🏪
-                        </div>
-
-                        <div className="mx-auto mt-7 h-11 w-11 animate-spin rounded-full border-4 border-orange-200 border-t-orange-600" />
-
-                        <p className="mt-5 font-bold text-gray-500">
-                            Loading your store...
-                        </p>
-
-                    </div>
-
+            <div className="flex min-h-[60vh] items-center justify-center px-4">
+                <div className="glass-strong rounded-[2rem] p-12 text-center">
+                    <div className="mx-auto h-11 w-11 animate-spin rounded-full border-4 border-orange-200 border-t-orange-600" />
+                    <p className="mt-5 font-bold text-gray-500">
+                        Loading restaurants...
+                    </p>
                 </div>
             </div>
         );
     }
-
-
-    // =====================================================
-    // NO STORE / ERROR
-    // =====================================================
-
-    if (error && !store) {
-        return (
-            <div className="relative min-h-screen overflow-hidden px-4 py-16">
-
-                <div className="pointer-events-none fixed -left-40 top-20 -z-10 h-96 w-96 rounded-full bg-orange-400/15 blur-3xl" />
-
-                <div className="pointer-events-none fixed -right-40 bottom-10 -z-10 h-96 w-96 rounded-full bg-orange-300/10 blur-3xl" />
-
-                <div className="mx-auto max-w-2xl">
-
-                    <div className="glass-strong rounded-[2rem] p-10 text-center shadow-xl">
-
-                        <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-[2rem] bg-orange-100/70 text-5xl">
-                            🏪
-                        </div>
-
-                        <p className="mt-6 text-xs font-black uppercase tracking-[0.2em] text-orange-500">
-                            Owner Panel
-                        </p>
-
-                        <h1 className="mt-2 text-3xl font-black text-gray-900">
-                            Store Not Found
-                        </h1>
-
-                        <p className="mt-3 text-sm text-gray-500">
-                            {error}
-                        </p>
-
-                        <Link
-                            to="/owner"
-                            className="glass-orange mt-7 inline-flex rounded-xl px-7 py-3 font-black"
-                        >
-                            ← Owner Dashboard
-                        </Link>
-
-                    </div>
-
-                </div>
-            </div>
-        );
-    }
-
-
-    if (!store) {
-        return null;
-    }
-
-
-    const longitude =
-        store.location?.coordinates?.[0];
-
-    const latitude =
-        store.location?.coordinates?.[1];
-
-
-    // =====================================================
-    // MAIN
-    // =====================================================
 
     return (
         <div className="relative min-h-screen overflow-hidden pb-20">
-
-            {/* BACKGROUND BLOBS */}
-
             <div className="pointer-events-none fixed -left-40 top-20 -z-10 h-[32rem] w-[32rem] rounded-full bg-orange-400/15 blur-3xl" />
+            <div className="pointer-events-none fixed -right-40 top-[28rem] -z-10 h-[32rem] w-[32rem] rounded-full bg-orange-300/10 blur-3xl" />
 
-            <div className="pointer-events-none fixed -right-40 top-[25rem] -z-10 h-[32rem] w-[32rem] rounded-full bg-orange-300/10 blur-3xl" />
-
-            <div className="pointer-events-none fixed bottom-0 left-1/3 -z-10 h-[24rem] w-[24rem] rounded-full bg-amber-200/10 blur-3xl" />
-
-
-            <main className="mx-auto max-w-6xl px-4 py-7 md:py-10">
-
-
-                {/* =================================================
-                    HEADER
-                ================================================= */}
-
-                <div className="glass-strong rounded-[2rem] p-6 shadow-xl md:p-8">
-
-                    <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-
+            <main className="mx-auto max-w-7xl px-4 py-7 md:py-10">
+                <section className="glass-strong rounded-[2rem] p-6 shadow-xl md:p-8">
+                    <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
                         <div className="flex items-start gap-4">
-
                             <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-orange-100/70 text-3xl">
                                 🏪
                             </div>
-
                             <div>
-
                                 <p className="text-xs font-black uppercase tracking-[0.2em] text-orange-500">
-                                    Owner Panel
+                                    Atlas Admin
                                 </p>
-
                                 <h1 className="mt-1 text-3xl font-black tracking-tight text-gray-900 md:text-4xl">
-                                    Restaurant Management
+                                    Manage Restaurants
                                 </h1>
-
-                                <p className="mt-2 text-sm leading-6 text-gray-500">
-                                    View and manage restaurant
-                                    information and pictures.
+                                <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-500">
+                                    Add or remove restaurants, update their details, and manage every restaurant menu.
                                 </p>
-
                             </div>
-
                         </div>
 
-
                         <div className="flex flex-wrap gap-3">
-
                             <Link
                                 to="/owner"
-                                className="glass-button inline-flex items-center justify-center rounded-xl px-5 py-3 text-sm font-black text-gray-700"
+                                className="glass-button rounded-xl px-5 py-3 text-sm font-black text-gray-700"
                             >
                                 ← Dashboard
                             </Link>
+                            <button
+                                type="button"
+                                onClick={startCreate}
+                                className="glass-orange rounded-xl px-5 py-3 text-sm font-black"
+                            >
+                                + Add Restaurant
+                            </button>
+                        </div>
+                    </div>
+                </section>
 
-                            {!editing && (
-                                <button
-                                    type="button"
-                                    onClick={
-                                        handleEdit
-                                    }
-                                    className="glass-orange rounded-xl px-5 py-3 text-sm font-black"
-                                >
-                                    ✏️ Edit Store
-                                </button>
-                            )}
-
+                <section className="glass-strong mt-6 rounded-[2rem] p-6 shadow-xl md:p-8">
+                    <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                        <div className="max-w-2xl">
+                            <p className="text-xs font-black uppercase tracking-[0.2em] text-orange-500">
+                                Geolocation Finder
+                            </p>
+                            <h2 className="mt-1 text-2xl font-black text-gray-900">
+                                Find Nearby Restaurants
+                            </h2>
+                            <p className="mt-2 text-sm leading-6 text-gray-500">
+                                Click the finder and choose Allow when your browser asks for location. FoodieHub uses the coordinates only to preview nearby OpenStreetMap restaurants. Review the list before importing it.
+                            </p>
                         </div>
 
+                        <div className="grid w-full gap-3 sm:grid-cols-2 lg:max-w-xl">
+                            <label className="text-sm font-bold text-gray-700">
+                                Search radius
+                                <select
+                                    value={finderRadius}
+                                    onChange={(event) => {
+                                        setFinderRadius(event.target.value);
+                                        setFinderResults([]);
+                                    }}
+                                    className="glass-input mt-2 w-full rounded-xl px-4 py-3 text-gray-800"
+                                >
+                                    <option value="1000">1 km</option>
+                                    <option value="3000">3 km</option>
+                                    <option value="5000">5 km</option>
+                                    <option value="10000">10 km</option>
+                                    <option value="25000">25 km</option>
+                                </select>
+                            </label>
+
+                            <label className="text-sm font-bold text-gray-700">
+                                Maximum results
+                                <select
+                                    value={finderLimit}
+                                    onChange={(event) => {
+                                        setFinderLimit(event.target.value);
+                                        setFinderResults([]);
+                                    }}
+                                    className="glass-input mt-2 w-full rounded-xl px-4 py-3 text-gray-800"
+                                >
+                                    <option value="10">10 restaurants</option>
+                                    <option value="20">20 restaurants</option>
+                                    <option value="50">50 restaurants</option>
+                                </select>
+                            </label>
+                        </div>
                     </div>
 
-                </div>
-
-                {stores.length > 1 && (
-                    <div className="glass-strong mt-6 rounded-2xl p-5 shadow-lg">
-                        <label className="mb-2 block text-xs font-black uppercase tracking-wider text-gray-400">
-                            Restaurant to manage
-                        </label>
-                        <select
-                            value={store._id}
-                            onChange={handleStoreSelection}
-                            className="glass-input w-full rounded-xl px-4 py-3 font-bold text-gray-800 outline-none"
+                    <div className="mt-5 flex flex-wrap gap-3">
+                        <button
+                            type="button"
+                            onClick={handleFindNearby}
+                            disabled={findingNearby || importingNearby}
+                            className="glass-orange rounded-xl px-5 py-3 text-sm font-black disabled:opacity-50"
                         >
-                            {stores.map((item) => (
-                                <option key={item._id} value={item._id}>
-                                    {item.name} — {item.category}
-                                </option>
-                            ))}
-                        </select>
+                            {findingNearby
+                                ? "📍 Finding restaurants..."
+                                : "📍 Use My Location & Preview"}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleImportNearby}
+                            disabled={
+                                importingNearby ||
+                                findingNearby ||
+                                finderResults.length === 0
+                            }
+                            className="glass-button rounded-xl px-5 py-3 text-sm font-black text-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            {importingNearby
+                                ? "Importing..."
+                                : `Import ${finderResults.length || "Previewed"} Restaurants`}
+                        </button>
+                    </div>
+
+                    {finderCoordinates && (
+                        <p className="mt-3 text-xs font-bold text-green-700">
+                            ✓ Location detected: {finderCoordinates.latitude.toFixed(4)}, {finderCoordinates.longitude.toFixed(4)}
+                        </p>
+                    )}
+
+                    {finderError && (
+                        <p className="mt-4 rounded-xl border border-red-200/70 bg-red-50/70 p-4 text-sm font-bold text-red-700">
+                            ⚠️ {finderError}
+                        </p>
+                    )}
+
+                    {finderResults.length > 0 && (
+                        <div className="mt-6">
+                            <div className="mb-3 flex items-center justify-between gap-3">
+                                <h3 className="font-black text-gray-900">
+                                    Preview: {finderResults.length} restaurants
+                                </h3>
+                                <span className="text-xs text-gray-500">
+                                    © OpenStreetMap contributors
+                                </span>
+                            </div>
+                            <div className="grid max-h-80 gap-3 overflow-y-auto pr-1 md:grid-cols-2">
+                                {finderResults.map((restaurant) => (
+                                    <div
+                                        key={restaurant.externalId}
+                                        className="glass rounded-2xl p-4"
+                                    >
+                                        <p className="font-black text-gray-900">
+                                            {restaurant.name}
+                                        </p>
+                                        <p className="mt-1 text-xs font-bold text-orange-600">
+                                            {restaurant.category}
+                                        </p>
+                                        <p className="mt-2 text-sm text-gray-500">
+                                            {restaurant.address}
+                                        </p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </section>
+
+                {error && (
+                    <div className="mt-6 rounded-2xl border border-red-200/70 bg-red-50/70 p-5 font-bold text-red-700">
+                        ⚠️ {error}
                     </div>
                 )}
-
-
-                {/* =================================================
-                    MESSAGES
-                ================================================= */}
 
                 {success && (
-
-                    <div className="glass mt-6 rounded-2xl border border-green-200/70 bg-green-50/60 p-5">
-
-                        <div className="flex items-center gap-3">
-
-                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-100/80 font-black text-green-700">
-                                ✓
-                            </div>
-
-                            <div>
-
-                                <p className="font-black text-green-800">
-                                    Success
-                                </p>
-
-                                <p className="text-sm text-green-700">
-                                    {success}
-                                </p>
-
-                            </div>
-
-                        </div>
-
+                    <div className="mt-6 rounded-2xl border border-green-200/70 bg-green-50/70 p-5 font-bold text-green-700">
+                        ✓ {success}
                     </div>
                 )}
 
-
-                {error && store && (
-
-                    <div className="glass mt-6 rounded-2xl border border-red-200/70 bg-red-50/60 p-5">
-
-                        <div className="flex items-center gap-3">
-
-                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-100/80">
-                                ⚠️
-                            </div>
-
-                            <p className="text-sm font-semibold text-red-700">
-                                {error}
-                            </p>
-
-                        </div>
-
-                    </div>
-                )}
-
-
-                {/* =================================================
-                    EDIT FORM
-                ================================================= */}
-
-                {editing ? (
-
+                {formMode && (
                     <form
                         onSubmit={handleSubmit}
                         className="glass-strong mt-6 rounded-[2rem] p-6 shadow-xl md:p-8"
                     >
-
-                        <div className="mb-7 flex items-center gap-4">
-
-                            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-orange-100/70 text-2xl">
-                                ✏️
-                            </div>
-
+                        <div className="flex items-start justify-between gap-4">
                             <div>
-
-                                <p className="text-xs font-black uppercase tracking-wider text-orange-500">
-                                    Store Details
+                                <p className="text-xs font-black uppercase tracking-[0.2em] text-orange-500">
+                                    Restaurant Form
                                 </p>
-
-                                <h2 className="text-2xl font-black text-gray-900">
-                                    Edit Store
+                                <h2 className="mt-1 text-2xl font-black text-gray-900">
+                                    {formMode === "create"
+                                        ? "Add Restaurant"
+                                        : `Edit ${selectedStore?.name}`}
                                 </h2>
-
-                                <p className="mt-1 text-sm text-gray-500">
-                                    Update your store
-                                    information below.
-                                </p>
-
                             </div>
-
+                            <button
+                                type="button"
+                                onClick={cancelForm}
+                                className="glass-button flex h-10 w-10 items-center justify-center rounded-xl font-black text-gray-600"
+                            >
+                                ✕
+                            </button>
                         </div>
 
-
-                        <div className="grid gap-5 sm:grid-cols-2">
-
-
-                            {/* NAME */}
-
-                            <div className="sm:col-span-2">
-
-                                <label className="mb-2 block text-sm font-black text-gray-700">
-                                    Store Name
-                                </label>
-
+                        <div className="mt-6 grid gap-5 md:grid-cols-2">
+                            <label className="text-sm font-black text-gray-700">
+                                Restaurant Name *
                                 <input
-                                    type="text"
                                     name="name"
-                                    value={
-                                        formData.name
-                                    }
-                                    onChange={
-                                        handleChange
-                                    }
+                                    value={formData.name}
+                                    onChange={handleChange}
                                     required
-                                    placeholder="Store name"
-                                    className="glass-input w-full rounded-xl px-4 py-3 text-gray-800 outline-none"
+                                    className="glass-input mt-2 w-full rounded-xl px-4 py-3 text-gray-800"
+                                    placeholder="Restaurant name"
                                 />
+                            </label>
 
-                            </div>
+                            <label className="text-sm font-black text-gray-700">
+                                Category *
+                                <input
+                                    name="category"
+                                    value={formData.category}
+                                    onChange={handleChange}
+                                    required
+                                    className="glass-input mt-2 w-full rounded-xl px-4 py-3 text-gray-800"
+                                    placeholder="Restaurant, Cafe, Fast Food..."
+                                />
+                            </label>
 
-
-                            {/* DESCRIPTION */}
-
-                            <div className="sm:col-span-2">
-
-                                <label className="mb-2 block text-sm font-black text-gray-700">
-                                    Description
-                                </label>
-
+                            <label className="text-sm font-black text-gray-700 md:col-span-2">
+                                Description
                                 <textarea
                                     name="description"
-                                    value={
-                                        formData.description
-                                    }
-                                    onChange={
-                                        handleChange
-                                    }
-                                    rows="4"
-                                    placeholder="Tell customers about your store..."
-                                    className="glass-input w-full resize-none rounded-xl px-4 py-3 text-gray-800 outline-none"
+                                    value={formData.description}
+                                    onChange={handleChange}
+                                    rows="3"
+                                    className="glass-input mt-2 w-full resize-none rounded-xl px-4 py-3 text-gray-800"
+                                    placeholder="Tell customers about this restaurant"
                                 />
+                            </label>
 
-                            </div>
+                            <label className="text-sm font-black text-gray-700">
+                                Phone
+                                <input
+                                    type="tel"
+                                    name="phone"
+                                    value={formData.phone}
+                                    onChange={handleChange}
+                                    className="glass-input mt-2 w-full rounded-xl px-4 py-3 text-gray-800"
+                                    placeholder="Restaurant phone"
+                                />
+                            </label>
 
+                            <label className="text-sm font-black text-gray-700 md:col-span-2">
+                                Address *
+                                <textarea
+                                    name="address"
+                                    value={formData.address}
+                                    onChange={handleChange}
+                                    required
+                                    rows="2"
+                                    className="glass-input mt-2 w-full resize-none rounded-xl px-4 py-3 text-gray-800"
+                                    placeholder="Full restaurant address"
+                                />
+                            </label>
 
-                            {/* RESTAURANT IMAGE */}
-
-                            <div className="sm:col-span-2">
-
-                                <label className="mb-2 block text-sm font-black text-gray-700">
+                            <div className="md:col-span-2">
+                                <p className="text-sm font-black text-gray-700">
                                     Restaurant Picture
-                                </label>
-
-                                <div className="grid gap-3 sm:grid-cols-[auto_1fr]">
+                                </p>
+                                <div className="mt-2 grid gap-3 sm:grid-cols-[auto_1fr]">
                                     <label className="glass-button flex cursor-pointer items-center justify-center rounded-xl px-5 py-3 text-sm font-black text-gray-700">
                                         {processingImage
-                                            ? "Processing Image..."
+                                            ? "Processing..."
                                             : "📷 Choose Image"}
                                         <input
                                             type="file"
@@ -719,7 +822,6 @@ function OwnerStore() {
                                             className="sr-only"
                                         />
                                     </label>
-
                                     <input
                                         type="url"
                                         name="image"
@@ -729,18 +831,14 @@ function OwnerStore() {
                                                 : formData.image
                                         }
                                         onChange={handleChange}
+                                        className="glass-input w-full rounded-xl px-4 py-3 text-gray-800"
                                         placeholder={
                                             formData.image.startsWith("data:image/")
                                                 ? "Uploaded image selected"
                                                 : "Or paste an image URL"
                                         }
-                                        className="glass-input w-full rounded-xl px-4 py-3 text-gray-800 outline-none"
                                     />
                                 </div>
-
-                                <p className="mt-2 text-xs text-gray-400">
-                                    JPEG, PNG or WebP. Images are compressed before upload.
-                                </p>
 
                                 {formData.image && (
                                     <div className="mt-4 overflow-hidden rounded-2xl border border-white/70 bg-white/40 p-3">
@@ -752,8 +850,8 @@ function OwnerStore() {
                                         <button
                                             type="button"
                                             onClick={() =>
-                                                setFormData((previous) => ({
-                                                    ...previous,
+                                                setFormData((current) => ({
+                                                    ...current,
                                                     image: ""
                                                 }))
                                             }
@@ -763,555 +861,297 @@ function OwnerStore() {
                                         </button>
                                     </div>
                                 )}
-
                             </div>
 
-
-                            {/* CATEGORY */}
-
-                            <div>
-
-                                <label className="mb-2 block text-sm font-black text-gray-700">
-                                    Category
-                                </label>
-
-                                <input
-                                    type="text"
-                                    name="category"
-                                    value={
-                                        formData.category
-                                    }
-                                    onChange={
-                                        handleChange
-                                    }
-                                    required
-                                    placeholder="Restaurant"
-                                    className="glass-input w-full rounded-xl px-4 py-3 text-gray-800 outline-none"
-                                />
-
-                            </div>
-
-
-                            {/* PHONE */}
-
-                            <div>
-
-                                <label className="mb-2 block text-sm font-black text-gray-700">
-                                    Phone
-                                </label>
-
-                                <input
-                                    type="tel"
-                                    name="phone"
-                                    value={
-                                        formData.phone
-                                    }
-                                    onChange={
-                                        handleChange
-                                    }
-                                    placeholder="Phone number"
-                                    className="glass-input w-full rounded-xl px-4 py-3 text-gray-800 outline-none"
-                                />
-
-                            </div>
-
-
-                            {/* ADDRESS */}
-
-                            <div className="sm:col-span-2">
-
-                                <label className="mb-2 block text-sm font-black text-gray-700">
-                                    Address
-                                </label>
-
-                                <textarea
-                                    name="address"
-                                    value={
-                                        formData.address
-                                    }
-                                    onChange={
-                                        handleChange
-                                    }
-                                    rows="3"
-                                    required
-                                    placeholder="Full store address"
-                                    className="glass-input w-full resize-none rounded-xl px-4 py-3 text-gray-800 outline-none"
-                                />
-
-                            </div>
-
-
-                            {/* LONGITUDE */}
-
-                            <div>
-
-                                <label className="mb-2 block text-sm font-black text-gray-700">
-                                    Longitude
-                                </label>
-
+                            <label className="text-sm font-black text-gray-700">
+                                Longitude *
                                 <input
                                     type="number"
                                     step="any"
-                                    name="longitude"
-                                    value={
-                                        formData.longitude
-                                    }
-                                    onChange={
-                                        handleChange
-                                    }
-                                    required
                                     min="-180"
                                     max="180"
-                                    className="glass-input w-full rounded-xl px-4 py-3 text-gray-800 outline-none"
+                                    name="longitude"
+                                    value={formData.longitude}
+                                    onChange={handleChange}
+                                    required
+                                    className="glass-input mt-2 w-full rounded-xl px-4 py-3 text-gray-800"
                                 />
+                            </label>
 
-                                <p className="mt-1.5 text-xs text-gray-400">
-                                    Range: -180 to 180
-                                </p>
-
-                            </div>
-
-
-                            {/* LATITUDE */}
-
-                            <div>
-
-                                <label className="mb-2 block text-sm font-black text-gray-700">
-                                    Latitude
-                                </label>
-
+                            <label className="text-sm font-black text-gray-700">
+                                Latitude *
                                 <input
                                     type="number"
                                     step="any"
-                                    name="latitude"
-                                    value={
-                                        formData.latitude
-                                    }
-                                    onChange={
-                                        handleChange
-                                    }
-                                    required
                                     min="-90"
                                     max="90"
-                                    className="glass-input w-full rounded-xl px-4 py-3 text-gray-800 outline-none"
+                                    name="latitude"
+                                    value={formData.latitude}
+                                    onChange={handleChange}
+                                    required
+                                    className="glass-input mt-2 w-full rounded-xl px-4 py-3 text-gray-800"
                                 />
-
-                                <p className="mt-1.5 text-xs text-gray-400">
-                                    Range: -90 to 90
-                                </p>
-
-                            </div>
-
+                            </label>
                         </div>
 
-
-                        {/* FORM BUTTONS */}
-
-                        <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-end">
-
+                        <div className="mt-5 flex flex-wrap gap-3">
                             <button
                                 type="button"
-                                onClick={
-                                    handleCancel
-                                }
-                                disabled={saving || processingImage}
-                                className="glass-button rounded-xl px-6 py-3 font-black text-gray-700 disabled:opacity-50"
+                                onClick={useCurrentLocationInForm}
+                                className="glass-button rounded-xl px-5 py-3 text-sm font-black text-gray-700"
+                            >
+                                📍 Use Current Coordinates
+                            </button>
+                            <button
+                                type="button"
+                                onClick={cancelForm}
+                                disabled={saving}
+                                className="glass-button rounded-xl px-5 py-3 text-sm font-black text-gray-700 disabled:opacity-50"
                             >
                                 Cancel
                             </button>
-
                             <button
                                 type="submit"
                                 disabled={saving || processingImage}
-                                className="glass-orange rounded-xl px-6 py-3 font-black disabled:cursor-not-allowed disabled:opacity-50"
+                                className="glass-orange rounded-xl px-6 py-3 text-sm font-black disabled:opacity-50"
                             >
                                 {saving
                                     ? "Saving..."
-                                    : "✓ Save Changes"}
+                                    : formMode === "create"
+                                        ? "+ Add Restaurant"
+                                        : "✓ Save Changes"}
                             </button>
-
                         </div>
-
                     </form>
-
-                ) : (
-
-                    <div className="mt-6 space-y-6">
-
-
-                        {/* =================================================
-                            STORE HERO
-                        ================================================= */}
-
-                        <div className="glass-strong overflow-hidden rounded-[2rem] shadow-xl">
-
-                            <div className="bg-gradient-to-r from-orange-500/10 via-orange-400/5 to-transparent p-6 md:p-8">
-
-                                <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-
-                                    <div className="flex items-center gap-5">
-
-                                        <div className="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-[1.5rem] border border-white/70 bg-white/60 text-4xl shadow-lg backdrop-blur-xl">
-                                            <span aria-hidden="true">🍽️</span>
-                                            {store.image && (
-                                                <img
-                                                    src={store.image}
-                                                    alt={store.name}
-                                                    className="absolute inset-0 h-full w-full object-cover"
-                                                    onError={(event) => {
-                                                        event.currentTarget.style.display = "none";
-                                                    }}
-                                                />
-                                            )}
-                                        </div>
-
-                                        <div>
-
-                                            <p className="text-xs font-black uppercase tracking-[0.18em] text-orange-500">
-                                                Your Store
-                                            </p>
-
-                                            <h2 className="mt-1 text-3xl font-black text-gray-900">
-                                                {store.name}
-                                            </h2>
-
-                                            <p className="mt-1 font-semibold text-gray-500">
-                                                {store.category ||
-                                                    "Store"}
-                                            </p>
-
-                                        </div>
-
-                                    </div>
-
-
-                                    <div
-                                        className={`w-fit rounded-full border px-5 py-2.5 text-sm font-black backdrop-blur-xl ${
-                                            store.isActive
-                                                ? "border-green-200/70 bg-green-50/80 text-green-700"
-                                                : "border-red-200/70 bg-red-50/80 text-red-700"
-                                        }`}
-                                    >
-                                        {store.isActive
-                                            ? "● Open"
-                                            : "● Closed"}
-                                    </div>
-
-                                </div>
-
-                            </div>
-
-
-                            {/* STORE DETAILS */}
-
-                            <div className="grid gap-4 p-6 md:grid-cols-2 md:p-8">
-
-
-                                {/* DESCRIPTION */}
-
-                                <div className="glass rounded-2xl p-5">
-
-                                    <div className="flex items-center gap-3">
-
-                                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-100/70">
-                                            📝
-                                        </div>
-
-                                        <p className="text-xs font-black uppercase tracking-wider text-gray-400">
-                                            Description
-                                        </p>
-
-                                    </div>
-
-                                    <p className="mt-4 text-sm leading-6 text-gray-700">
-                                        {store.description ||
-                                            "No description added."}
-                                    </p>
-
-                                </div>
-
-
-                                {/* CATEGORY */}
-
-                                <div className="glass rounded-2xl p-5">
-
-                                    <div className="flex items-center gap-3">
-
-                                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-100/70">
-                                            🏷️
-                                        </div>
-
-                                        <p className="text-xs font-black uppercase tracking-wider text-gray-400">
-                                            Category
-                                        </p>
-
-                                    </div>
-
-                                    <p className="mt-4 text-lg font-black text-gray-900">
-                                        {store.category ||
-                                            "Not specified"}
-                                    </p>
-
-                                </div>
-
-
-                                {/* ADDRESS */}
-
-                                <div className="glass rounded-2xl p-5">
-
-                                    <div className="flex items-center gap-3">
-
-                                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-100/70">
-                                            📍
-                                        </div>
-
-                                        <p className="text-xs font-black uppercase tracking-wider text-gray-400">
-                                            Address
-                                        </p>
-
-                                    </div>
-
-                                    <p className="mt-4 text-sm leading-6 text-gray-700">
-                                        {store.address ||
-                                            "No address added."}
-                                    </p>
-
-                                </div>
-
-
-                                {/* PHONE */}
-
-                                <div className="glass rounded-2xl p-5">
-
-                                    <div className="flex items-center gap-3">
-
-                                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-100/70">
-                                            📞
-                                        </div>
-
-                                        <p className="text-xs font-black uppercase tracking-wider text-gray-400">
-                                            Phone
-                                        </p>
-
-                                    </div>
-
-                                    <p className="mt-4 text-lg font-black text-gray-900">
-                                        {store.phone ||
-                                            "No phone number"}
-                                    </p>
-
-                                </div>
-
-
-                                {/* LONGITUDE */}
-
-                                <div className="glass rounded-2xl p-5">
-
-                                    <div className="flex items-center gap-3">
-
-                                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-100/70">
-                                            🌐
-                                        </div>
-
-                                        <p className="text-xs font-black uppercase tracking-wider text-gray-400">
-                                            Longitude
-                                        </p>
-
-                                    </div>
-
-                                    <p className="mt-4 font-black text-gray-900">
-                                        {longitude ??
-                                            "Not available"}
-                                    </p>
-
-                                </div>
-
-
-                                {/* LATITUDE */}
-
-                                <div className="glass rounded-2xl p-5">
-
-                                    <div className="flex items-center gap-3">
-
-                                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-100/70">
-                                            🌐
-                                        </div>
-
-                                        <p className="text-xs font-black uppercase tracking-wider text-gray-400">
-                                            Latitude
-                                        </p>
-
-                                    </div>
-
-                                    <p className="mt-4 font-black text-gray-900">
-                                        {latitude ??
-                                            "Not available"}
-                                    </p>
-
-                                </div>
-
-                            </div>
-
-                        </div>
-
-
-                        {/* =================================================
-                            STORE STATUS
-                        ================================================= */}
-
-                        <div className="glass-strong rounded-[2rem] p-6 shadow-xl md:p-8">
-
-                            <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-
-                                <div className="flex items-start gap-4">
-
-                                    <div
-                                        className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-2xl ${
-                                            store.isActive
-                                                ? "bg-green-100/70"
-                                                : "bg-red-100/70"
-                                        }`}
-                                    >
-                                        {store.isActive
-                                            ? "🟢"
-                                            : "🔴"}
-                                    </div>
-
-                                    <div>
-
-                                        <p className="text-xs font-black uppercase tracking-wider text-gray-400">
-                                            Store Status
-                                        </p>
-
-                                        <h3 className="mt-1 text-2xl font-black text-gray-900">
-                                            {store.isActive
-                                                ? "Your store is open"
-                                                : "Your store is closed"}
-                                        </h3>
-
-                                        <p className="mt-2 max-w-xl text-sm leading-6 text-gray-500">
-                                            {store.isActive
-                                                ? "Your store is currently visible to customers and can receive orders."
-                                                : "Your store is currently hidden from customers."}
-                                        </p>
-
-                                    </div>
-
-                                </div>
-
-
-                                <button
-                                    type="button"
-                                    onClick={
-                                        handleToggleStore
-                                    }
-                                    disabled={
-                                        toggling
-                                    }
-                                    className={`rounded-xl px-6 py-3.5 font-black transition disabled:cursor-not-allowed disabled:opacity-50 ${
-                                        store.isActive
-                                            ? "border border-red-200/70 bg-red-50/70 text-red-700 hover:bg-red-100/80"
-                                            : "border border-green-200/70 bg-green-50/70 text-green-700 hover:bg-green-100/80"
-                                    }`}
-                                >
-                                    {toggling
-                                        ? "Updating..."
-                                        : store.isActive
-                                            ? "🔴 Close Store"
-                                            : "🟢 Open Store"}
-                                </button>
-
-                            </div>
-
-                        </div>
-
-
-                        {/* =================================================
-                            QUICK ACTIONS
-                        ================================================= */}
-
-                        <div className="grid gap-4 sm:grid-cols-2">
-
-                            <Link
-                                to="/owner/products"
-                                className="glass glass-hover group rounded-2xl p-6 shadow-lg transition hover:-translate-y-1"
-                            >
-
-                                <div className="flex items-center justify-between">
-
-                                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-orange-100/70 text-2xl">
-                                        🍽️
-                                    </div>
-
-                                    <span className="text-xl transition-transform group-hover:translate-x-1">
-                                        →
-                                    </span>
-
-                                </div>
-
-                                <h3 className="mt-5 text-lg font-black text-gray-900">
-                                    Manage Products
-                                </h3>
-
-                                <p className="mt-1 text-sm text-gray-500">
-                                    Add, edit and manage
-                                    your menu items.
-                                </p>
-
-                            </Link>
-
-
-                            <Link
-                                to="/owner/orders"
-                                className="glass glass-hover group rounded-2xl p-6 shadow-lg transition hover:-translate-y-1"
-                            >
-
-                                <div className="flex items-center justify-between">
-
-                                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-orange-100/70 text-2xl">
-                                        📦
-                                    </div>
-
-                                    <span className="text-xl transition-transform group-hover:translate-x-1">
-                                        →
-                                    </span>
-
-                                </div>
-
-                                <h3 className="mt-5 text-lg font-black text-gray-900">
-                                    Manage Orders
-                                </h3>
-
-                                <p className="mt-1 text-sm text-gray-500">
-                                    View and process
-                                    customer orders.
-                                </p>
-
-                            </Link>
-
-                        </div>
-
-
-                        {/* =================================================
-                            BOTTOM NAV
-                        ================================================= */}
-
-                        <div className="flex justify-center pt-2">
-
-                            <Link
-                                to="/owner"
-                                className="glass-button inline-flex rounded-xl px-7 py-3.5 font-black text-gray-700"
-                            >
-                                ← Back to Owner Dashboard
-                            </Link>
-
-                        </div>
-
-                    </div>
                 )}
 
-            </main>
+                {stores.length > 0 && !formMode && (
+                    <section className="glass-strong mt-6 rounded-2xl p-5 shadow-lg">
+                        <label className="mb-2 block text-xs font-black uppercase tracking-wider text-gray-400">
+                            Restaurant to manage
+                        </label>
+                        <select
+                            value={selectedStoreId}
+                            onChange={(event) => {
+                                setSelectedStoreId(event.target.value);
+                                clearMessages();
+                            }}
+                            className="glass-input w-full rounded-xl px-4 py-3 font-bold text-gray-800"
+                        >
+                            {stores.map((item) => (
+                                <option key={item._id} value={item._id}>
+                                    {item.name} — {item.category}
+                                </option>
+                            ))}
+                        </select>
+                    </section>
+                )}
 
+                {!selectedStore && !formMode && (
+                    <section className="glass-strong mt-6 rounded-[2rem] p-10 text-center shadow-xl">
+                        <div className="text-5xl">🏪</div>
+                        <h2 className="mt-5 text-2xl font-black text-gray-900">
+                            No restaurants yet
+                        </h2>
+                        <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-gray-500">
+                            Add one manually or use the geolocation finder above to preview and import nearby restaurants.
+                        </p>
+                        <button
+                            type="button"
+                            onClick={startCreate}
+                            className="glass-orange mt-6 rounded-xl px-6 py-3 font-black"
+                        >
+                            + Add First Restaurant
+                        </button>
+                    </section>
+                )}
+
+                {selectedStore && !formMode && (
+                    <>
+                        <section className="glass-strong mt-6 overflow-hidden rounded-[2rem] shadow-xl">
+                            <div className="relative h-64 bg-gradient-to-br from-orange-100/80 to-amber-50/70 md:h-80">
+                                <div className="flex h-full items-center justify-center text-8xl">
+                                    🏪
+                                </div>
+                                {selectedStore.image && (
+                                    <img
+                                        src={selectedStore.image}
+                                        alt={selectedStore.name}
+                                        className="absolute inset-0 h-full w-full object-cover"
+                                    />
+                                )}
+                                <span
+                                    className={`absolute right-5 top-5 rounded-full border px-4 py-2 text-sm font-black backdrop-blur-xl ${
+                                        selectedStore.isActive
+                                            ? "border-green-200/70 bg-green-50/80 text-green-700"
+                                            : "border-red-200/70 bg-red-50/80 text-red-700"
+                                    }`}
+                                >
+                                    {selectedStore.isActive ? "● Open" : "● Closed"}
+                                </span>
+                            </div>
+
+                            <div className="p-6 md:p-8">
+                                <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                                    <div>
+                                        <p className="text-sm font-black text-orange-600">
+                                            {selectedStore.category}
+                                        </p>
+                                        <h2 className="mt-1 text-3xl font-black text-gray-900">
+                                            {selectedStore.name}
+                                        </h2>
+                                        <p className="mt-3 max-w-3xl leading-7 text-gray-600">
+                                            {selectedStore.description || "No description added."}
+                                        </p>
+                                        <p className="mt-3 text-sm text-gray-500">
+                                            📍 {selectedStore.address}
+                                        </p>
+                                        {selectedStore.phone && (
+                                            <p className="mt-2 text-sm text-gray-500">
+                                                📞 {selectedStore.phone}
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    <div className="flex flex-wrap gap-2 lg:max-w-sm lg:justify-end">
+                                        <button
+                                            type="button"
+                                            onClick={startEdit}
+                                            className="glass-button rounded-xl px-4 py-2.5 text-sm font-black text-gray-700"
+                                        >
+                                            ✏️ Edit
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={handleToggleStore}
+                                            disabled={togglingStore}
+                                            className="glass-button rounded-xl px-4 py-2.5 text-sm font-black text-gray-700 disabled:opacity-50"
+                                        >
+                                            {togglingStore
+                                                ? "Updating..."
+                                                : selectedStore.isActive
+                                                    ? "Close Restaurant"
+                                                    : "Open Restaurant"}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={handleRemoveStore}
+                                            disabled={removingStore}
+                                            className="rounded-xl border border-red-200/70 bg-red-50/70 px-4 py-2.5 text-sm font-black text-red-600 disabled:opacity-50"
+                                        >
+                                            {removingStore
+                                                ? "Removing..."
+                                                : "🗑 Remove Restaurant"}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section className="glass-strong mt-6 rounded-[2rem] p-6 shadow-xl md:p-8">
+                            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                                <div>
+                                    <p className="text-xs font-black uppercase tracking-[0.2em] text-orange-500">
+                                        Restaurant Menu
+                                    </p>
+                                    <h2 className="mt-1 text-2xl font-black text-gray-900">
+                                        Food Items ({products.length})
+                                    </h2>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                    <Link
+                                        to={`/owner/products?store=${selectedStore._id}`}
+                                        className="glass-button rounded-xl px-4 py-2.5 text-sm font-black text-gray-700"
+                                    >
+                                        Manage Full Menu
+                                    </Link>
+                                    <Link
+                                        to={`/owner/products?store=${selectedStore._id}&action=add`}
+                                        className="glass-orange rounded-xl px-4 py-2.5 text-sm font-black"
+                                    >
+                                        + Add Food Item
+                                    </Link>
+                                </div>
+                            </div>
+
+                            {loadingProducts ? (
+                                <p className="mt-6 text-sm font-bold text-gray-500">
+                                    Loading menu items...
+                                </p>
+                            ) : products.length === 0 ? (
+                                <div className="mt-6 rounded-2xl border border-dashed border-orange-200 bg-orange-50/40 p-8 text-center">
+                                    <div className="text-4xl">🍽️</div>
+                                    <p className="mt-3 font-black text-gray-900">
+                                        No food items in this restaurant
+                                    </p>
+                                    <Link
+                                        to={`/owner/products?store=${selectedStore._id}&action=add`}
+                                        className="mt-4 inline-flex font-black text-orange-600"
+                                    >
+                                        Add the first food item →
+                                    </Link>
+                                </div>
+                            ) : (
+                                <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                                    {products.map((product) => (
+                                        <article
+                                            key={product._id}
+                                            className="glass overflow-hidden rounded-2xl"
+                                        >
+                                            <div className="relative flex h-36 items-center justify-center bg-orange-50/70 text-5xl">
+                                                🍽️
+                                                {product.image && (
+                                                    <img
+                                                        src={product.image}
+                                                        alt={product.name}
+                                                        className="absolute inset-0 h-full w-full object-cover"
+                                                    />
+                                                )}
+                                            </div>
+                                            <div className="p-4">
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <div>
+                                                        <h3 className="font-black text-gray-900">
+                                                            {product.name}
+                                                        </h3>
+                                                        <p className="mt-1 text-xs font-bold text-orange-600">
+                                                            {product.category}
+                                                        </p>
+                                                    </div>
+                                                    <p className="font-black text-gray-900">
+                                                        ₹{Number(product.price || 0).toFixed(0)}
+                                                    </p>
+                                                </div>
+                                                <div className="mt-4 flex items-center justify-between gap-3">
+                                                    <span className={`text-xs font-black ${
+                                                        product.isAvailable
+                                                            ? "text-green-700"
+                                                            : "text-red-600"
+                                                    }`}>
+                                                        {product.isAvailable
+                                                            ? "Available"
+                                                            : "Unavailable"}
+                                                    </span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleRemoveProduct(product)}
+                                                        disabled={removingProduct === product._id}
+                                                        className="rounded-lg border border-red-200/70 bg-red-50/70 px-3 py-2 text-xs font-black text-red-600 disabled:opacity-50"
+                                                    >
+                                                        {removingProduct === product._id
+                                                            ? "Removing..."
+                                                            : "Remove"}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </article>
+                                    ))}
+                                </div>
+                            )}
+                        </section>
+                    </>
+                )}
+            </main>
         </div>
     );
 }

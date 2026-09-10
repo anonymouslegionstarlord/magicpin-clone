@@ -14,6 +14,7 @@ function Home() {
     const [locationLoading, setLocationLoading] = useState(false);
     const [locationError, setLocationError] = useState("");
     const [userLocation, setUserLocation] = useState(null);
+    const [nearbyDistance, setNearbyDistance] = useState("5000");
 
 
     // ==========================================
@@ -290,7 +291,7 @@ function Home() {
 
                 try {
                     const response = await API.get(
-                        `/stores/nearby?latitude=${latitude}&longitude=${longitude}`
+                        `/stores/nearby?latitude=${latitude}&longitude=${longitude}&distance=${nearbyDistance}`
                     );
 
                     setStores(
@@ -331,6 +332,11 @@ function Home() {
                         "Unable to get your location."
                     );
                 }
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 12000,
+                maximumAge: 300000
             }
         );
     };
@@ -482,6 +488,21 @@ function Home() {
 
                             <div className="mt-4 flex flex-wrap items-center gap-3">
 
+                                <select
+                                    value={nearbyDistance}
+                                    onChange={(event) =>
+                                        setNearbyDistance(event.target.value)
+                                    }
+                                    aria-label="Nearby restaurant distance"
+                                    className="glass-input rounded-xl px-4 py-3 font-bold text-gray-700"
+                                >
+                                    <option value="1000">Within 1 km</option>
+                                    <option value="3000">Within 3 km</option>
+                                    <option value="5000">Within 5 km</option>
+                                    <option value="10000">Within 10 km</option>
+                                    <option value="25000">Within 25 km</option>
+                                </select>
+
                                 <button
                                     type="button"
                                     onClick={handleLocation}
@@ -503,6 +524,10 @@ function Home() {
                                 )}
 
                             </div>
+
+                            <p className="mt-3 text-xs font-medium text-gray-500">
+                                Choose a distance, click Use my location, then select Allow in your browser. Your coordinates are used only for this nearby search.
+                            </p>
 
 
                             {locationError && (

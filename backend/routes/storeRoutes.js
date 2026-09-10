@@ -11,7 +11,8 @@ const {
     searchStores,
     getStoresByCategory,
     getMyStores,
-    updateStore
+    updateStore,
+    archiveStore
 } = require("../controllers/storeController");
 
 const router = express.Router();
@@ -25,6 +26,7 @@ router.get("/nearby", getNearbyStores);
 router.get("/search", searchStores);
 router.get("/category/:category", getStoresByCategory);
 router.put("/:id", protect, requireAdmin, updateStore);
+router.delete("/:id", protect, requireAdmin, archiveStore);
 router.get("/:id", getStoreById);
 
 module.exports = router;
