@@ -17,25 +17,18 @@ function OwnerRoute({ children }) {
                     return;
                 }
 
-                const headers = {
-                    Authorization: `Bearer ${token}`
-                };
-
-                const [profileResponse, storesResponse] =
-                    await Promise.all([
-                        API.get("/users/me", { headers }),
-                        API.get("/stores/my", { headers })
-                    ]);
-
-                const stores =
-                    storesResponse.data.stores || [];
-
-                const isAdmin =
-                    profileResponse.data.user?.role ===
-                    "admin";
+                const profileResponse = await API.get(
+                    "/users/me",
+                    {
+                        headers: {
+                            Authorization: `Bearer ${token}`
+                        }
+                    }
+                );
 
                 setIsOwner(
-                    isAdmin || stores.length > 0
+                    profileResponse.data.permissions
+                        ?.ownerDashboard === true
                 );
 
             } catch (error) {
@@ -77,7 +70,7 @@ function OwnerRoute({ children }) {
         );
     }
 
-    // User is logged in but doesn't own a store
+    // User is logged in but is not the configured admin
     if (!isOwner) {
         return (
             <Navigate
@@ -87,7 +80,7 @@ function OwnerRoute({ children }) {
         );
     }
 
-    // Owner is allowed to access the page
+    // Configured admin is allowed to access the page
     return children;
 }
 

@@ -1,6 +1,7 @@
 const express = require("express");
 
 const protect = require("../middleware/authMiddleware");
+const requireAdmin = require("../middleware/adminMiddleware");
 
 const {
     createOrder,
@@ -43,6 +44,7 @@ router.get(
 router.get(
     "/store",
     protect,
+    requireAdmin,
     getStoreOrders
 );
 
@@ -65,6 +67,7 @@ router.get(
 router.put(
     "/:id/status",
     protect,
+    requireAdmin,
     updateOrderStatus
 );
 

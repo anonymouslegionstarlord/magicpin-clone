@@ -21,7 +21,7 @@ const protect = async (req, res, next) => {
 
         const user = await User.findById(
             decoded.userId
-        ).select("_id role");
+        ).select("_id role email");
 
         if (!user) {
             return res.status(401).json({
@@ -32,6 +32,7 @@ const protect = async (req, res, next) => {
 
         req.userId = user._id;
         req.userRole = user.role || "user";
+        req.userEmail = user.email;
 
         next();
 

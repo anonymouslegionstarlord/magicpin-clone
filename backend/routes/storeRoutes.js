@@ -1,6 +1,7 @@
 const express = require("express");
 
 const protect = require("../middleware/authMiddleware");
+const requireAdmin = require("../middleware/adminMiddleware");
 
 const {
     createStore,
@@ -15,15 +16,15 @@ const {
 
 const router = express.Router();
 
-router.post("/", protect, createStore);
-router.get("/my", protect, getMyStores);
+router.post("/", protect, requireAdmin, createStore);
+router.get("/my", protect, requireAdmin, getMyStores);
 
 router.get("/", getStores);
 
 router.get("/nearby", getNearbyStores);
 router.get("/search", searchStores);
 router.get("/category/:category", getStoresByCategory);
-router.put("/:id", protect, updateStore);
+router.put("/:id", protect, requireAdmin, updateStore);
 router.get("/:id", getStoreById);
 
 module.exports = router;

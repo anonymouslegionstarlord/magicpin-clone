@@ -1,16 +1,10 @@
 const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-
-const isConfiguredAdmin = (email) => {
-    const adminEmail = process.env.ADMIN_EMAIL
-        ?.trim()
-        .toLowerCase();
-
-    return Boolean(
-        adminEmail && email === adminEmail
-    );
-};
+const {
+    isConfiguredAdminEmail,
+    isAdminAccount
+} = require("../utils/adminAccess");
 
 const registerUser = async (req, res) => {
     try {
@@ -48,7 +42,7 @@ const registerUser = async (req, res) => {
             name,
             email: normalizedEmail,
             password: hashedPassword,
-            role: isConfiguredAdmin(normalizedEmail)
+            role: isConfiguredAdminEmail(normalizedEmail)
                 ? "admin"
                 : "user"
         });
@@ -60,7 +54,9 @@ const registerUser = async (req, res) => {
                 id: user._id,
                 name: user.name,
                 email: user.email,
-                role: user.role
+                role: user.role,
+                canAccessOwnerDashboard:
+                    isAdminAccount(user)
             }
         });
 
@@ -118,7 +114,7 @@ const loginUser = async (req, res) => {
         // Promote only the server-configured account.
         // Clients cannot request an admin role themselves.
         if (
-            isConfiguredAdmin(user.email) &&
+            isConfiguredAdminEmail(user.email) &&
             user.role !== "admin"
         ) {
             user.role = "admin";
@@ -145,7 +141,9 @@ const loginUser = async (req, res) => {
                 id: user._id,
                 name: user.name,
                 email: user.email,
-                role: user.role
+                role: user.role,
+                canAccessOwnerDashboard:
+                    isAdminAccount(user)
             }
         });
 

@@ -110,12 +110,14 @@ function Navbar() {
 
                                     {/* Owner Dashboard */}
 
-                                    <Link
-                                        to="/owner"
-                                        className="hidden lg:block rounded-xl px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-white/60 hover:text-orange-600"
-                                    >
-                                        🏪 Owner
-                                    </Link>
+                                    {user?.canAccessOwnerDashboard && (
+                                        <Link
+                                            to="/owner"
+                                            className="hidden lg:block rounded-xl px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-white/60 hover:text-orange-600"
+                                        >
+                                            🏪 Owner
+                                        </Link>
+                                    )}
 
 
                                     {/* Profile */}

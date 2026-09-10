@@ -1,4 +1,7 @@
 const User = require("../models/User");
+const {
+    isAdminAccount
+} = require("../utils/adminAccess");
 
 const getMyProfile = async (req, res) => {
     try {
@@ -13,7 +16,10 @@ const getMyProfile = async (req, res) => {
 
         res.status(200).json({
             success: true,
-            user
+            user,
+            permissions: {
+                ownerDashboard: isAdminAccount(user)
+            }
         });
 
     } catch (error) {
