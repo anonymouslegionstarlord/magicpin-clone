@@ -1,8 +1,11 @@
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import ThemeToggle from "./ThemeToggle";
 
 function Navbar() {
     const navigate = useNavigate();
+    const [ownerMenuOpen, setOwnerMenuOpen] = useState(false);
+    const ownerMenuRef = useRef(null);
 
     const token = localStorage.getItem("token");
 
@@ -11,11 +14,76 @@ function Navbar() {
     );
 
     const logout = () => {
+        setOwnerMenuOpen(false);
         localStorage.removeItem("token");
         localStorage.removeItem("user");
 
         navigate("/login");
     };
+
+    useEffect(() => {
+        const closeOwnerMenu = (event) => {
+            if (
+                ownerMenuRef.current &&
+                !ownerMenuRef.current.contains(event.target)
+            ) {
+                setOwnerMenuOpen(false);
+            }
+        };
+
+        const closeOnEscape = (event) => {
+            if (event.key === "Escape") {
+                setOwnerMenuOpen(false);
+            }
+        };
+
+        document.addEventListener("mousedown", closeOwnerMenu);
+        document.addEventListener("keydown", closeOnEscape);
+
+        return () => {
+            document.removeEventListener("mousedown", closeOwnerMenu);
+            document.removeEventListener("keydown", closeOnEscape);
+        };
+    }, []);
+
+    const ownerLinks = [
+        {
+            to: "/owner",
+            icon: "📊",
+            label: "Owner Dashboard",
+            description: "Overview and activity"
+        },
+        {
+            to: "/owner/orders",
+            icon: "📦",
+            label: "Owner Orders",
+            description: "View and manage all orders"
+        },
+        {
+            to: "/owner/store",
+            icon: "🏪",
+            label: "Manage Restaurants",
+            description: "Restaurant information"
+        },
+        {
+            to: "/owner/products",
+            icon: "🍽️",
+            label: "Manage Restaurant Menu",
+            description: "Add and update menu items"
+        },
+        {
+            to: "/contact",
+            icon: "✉️",
+            label: "Contact Us",
+            description: "Get in touch"
+        },
+        {
+            to: "/support",
+            icon: "❓",
+            label: "Help & Support",
+            description: "Answers and assistance"
+        }
+    ];
 
     return (
         <nav className="sticky top-0 z-50 px-4 py-3">
@@ -122,15 +190,97 @@ function Navbar() {
                                     </Link>
 
 
-                                    {/* Owner Dashboard */}
+                                    {/* Owner Navigation */}
 
                                     {user?.canAccessOwnerDashboard && (
-                                        <Link
-                                            to="/owner"
-                                            className="hidden lg:block rounded-xl px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-white/60 hover:text-orange-600"
+                                        <div
+                                            ref={ownerMenuRef}
+                                            className="relative"
                                         >
-                                            🏪 Owner
-                                        </Link>
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    setOwnerMenuOpen(
+                                                        (open) => !open
+                                                    )
+                                                }
+                                                aria-haspopup="menu"
+                                                aria-expanded={ownerMenuOpen}
+                                                className="flex items-center gap-1 rounded-xl px-2.5 py-2 text-sm font-bold text-gray-700 transition hover:bg-white/60 hover:text-orange-600 sm:px-3"
+                                            >
+                                                <span>🏪</span>
+                                                <span className="hidden lg:inline">
+                                                    Owner
+                                                </span>
+                                                <span
+                                                    className={`text-[10px] transition-transform ${
+                                                        ownerMenuOpen
+                                                            ? "rotate-180"
+                                                            : ""
+                                                    }`}
+                                                >
+                                                    ▼
+                                                </span>
+                                            </button>
+
+                                            {ownerMenuOpen && (
+                                                <div
+                                                    role="menu"
+                                                    className="glass-strong absolute right-0 top-[calc(100%+0.75rem)] z-[70] w-72 overflow-hidden rounded-2xl p-2 shadow-2xl"
+                                                >
+                                                    <div className="border-b border-white/60 px-3 py-2.5">
+                                                        <p className="text-xs font-black uppercase tracking-[0.18em] text-orange-500">
+                                                            Atlas Owner Menu
+                                                        </p>
+                                                    </div>
+
+                                                    <div className="mt-1 space-y-1">
+                                                        {ownerLinks.map(
+                                                            (item, index) => (
+                                                                <div
+                                                                    key={item.to}
+                                                                    className={
+                                                                        index === 4
+                                                                            ? "border-t border-white/60 pt-1"
+                                                                            : ""
+                                                                    }
+                                                                >
+                                                                    <Link
+                                                                        to={item.to}
+                                                                        role="menuitem"
+                                                                        onClick={() =>
+                                                                            setOwnerMenuOpen(
+                                                                                false
+                                                                            )
+                                                                        }
+                                                                        className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-white/65"
+                                                                    >
+                                                                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-orange-100/75 text-lg">
+                                                                            {
+                                                                                item.icon
+                                                                            }
+                                                                        </span>
+
+                                                                        <span className="min-w-0">
+                                                                            <span className="block text-sm font-black text-gray-800">
+                                                                                {
+                                                                                    item.label
+                                                                                }
+                                                                            </span>
+                                                                            <span className="block truncate text-xs text-gray-500">
+                                                                                {
+                                                                                    item.description
+                                                                                }
+                                                                            </span>
+                                                                        </span>
+                                                                    </Link>
+                                                                </div>
+                                                            )
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
                                     )}
 
 
