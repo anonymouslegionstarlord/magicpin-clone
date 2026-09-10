@@ -157,9 +157,17 @@ function Navbar() {
 
                             <Link
                                 to="/"
-                                className="hidden rounded-xl px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-white/60 hover:text-orange-600 sm:block"
+                                aria-label="Go to homepage"
+                                title="Home"
+                                className="flex h-10 w-10 items-center justify-center rounded-xl text-sm font-medium text-gray-700 transition hover:bg-white/60 hover:text-orange-600 sm:h-auto sm:w-auto sm:px-3 sm:py-2"
                             >
-                                Home
+                                <span aria-hidden="true" className="sm:hidden">
+                                    🏠
+                                </span>
+
+                                <span className="hidden sm:inline">
+                                    Home
+                                </span>
                             </Link>
 
 
