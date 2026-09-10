@@ -20,8 +20,11 @@ import OwnerProducts from "./pages/OwnerProducts";
 import OwnerRoute from "./components/OwnerRoute";
 import OwnerStore from "./pages/OwnerStore";
 import OwnerLayout from "./components/OwnerLayout";
+import Support from "./pages/Support";
+import ContactUs from "./pages/ContactUs";
 
 import Navbar from "./components/Navbar";
+import Footer from "./components/Footer";
 
 function App() {
     return (
@@ -87,6 +90,16 @@ function App() {
                     <Route
                         path="/store/:storeId"
                         element={<StoreDetails />}
+                    />
+
+                    <Route
+                        path="/support"
+                        element={<Support />}
+                    />
+
+                    <Route
+                        path="/contact"
+                        element={<ContactUs />}
                     />
 
 
@@ -185,6 +198,8 @@ function App() {
                 </Routes>
 
             </main>
+
+            <Footer />
 
         </BrowserRouter>
     );

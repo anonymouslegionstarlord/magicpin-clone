@@ -1,4 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
+import ThemeToggle from "./ThemeToggle";
 
 function Navbar() {
     const navigate = useNavigate();
@@ -63,16 +64,29 @@ function Navbar() {
 
                             <Link
                                 to="/"
-                                className="rounded-xl px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-white/60 hover:text-orange-600"
+                                className="hidden rounded-xl px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-white/60 hover:text-orange-600 sm:block"
                             >
-                                <span className="hidden sm:inline">
-                                    Home
-                                </span>
-
-                                <span className="sm:hidden">
-                                    🏠
-                                </span>
+                                Home
                             </Link>
+
+
+                            <Link
+                                to="/support"
+                                className="hidden rounded-xl px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-white/60 hover:text-orange-600 lg:block"
+                            >
+                                Support
+                            </Link>
+
+
+                            <Link
+                                to="/contact"
+                                className="hidden rounded-xl px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-white/60 hover:text-orange-600 xl:block"
+                            >
+                                Contact
+                            </Link>
+
+
+                            <ThemeToggle />
 
 
                             {token ? (
