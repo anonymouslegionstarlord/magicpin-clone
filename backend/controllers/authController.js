@@ -55,6 +55,7 @@ const registerUser = async (req, res) => {
                 name: user.name,
                 email: user.email,
                 role: user.role,
+                profileImage: user.profileImage || "",
                 canAccessOwnerDashboard:
                     isAdminAccount(user)
             }
@@ -142,6 +143,7 @@ const loginUser = async (req, res) => {
                 name: user.name,
                 email: user.email,
                 role: user.role,
+                profileImage: user.profileImage || "",
                 canAccessOwnerDashboard:
                     isAdminAccount(user)
             }

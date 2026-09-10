@@ -1,14 +1,28 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import API from "../api/api";
+import { prepareImage } from "../utils/imageUpload";
+
+const getStoreFormData = (store) => ({
+    name: store.name || "",
+    description: store.description || "",
+    category: store.category || "",
+    address: store.address || "",
+    phone: store.phone || "",
+    image: store.image || "",
+    longitude: store.location?.coordinates?.[0] ?? "",
+    latitude: store.location?.coordinates?.[1] ?? ""
+});
 
 function OwnerStore() {
     const navigate = useNavigate();
 
+    const [stores, setStores] = useState([]);
     const [store, setStore] = useState(null);
 
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [processingImage, setProcessingImage] = useState(false);
     const [toggling, setToggling] = useState(false);
 
     const [error, setError] = useState("");
@@ -22,6 +36,7 @@ function OwnerStore() {
         category: "",
         address: "",
         phone: "",
+        image: "",
         longitude: "",
         latitude: ""
     });
@@ -63,29 +78,9 @@ function OwnerStore() {
                 const currentStore =
                     stores[0];
 
+                setStores(stores);
                 setStore(currentStore);
-
-                setFormData({
-                    name:
-                        currentStore.name || "",
-                    description:
-                        currentStore.description ||
-                        "",
-                    category:
-                        currentStore.category || "",
-                    address:
-                        currentStore.address || "",
-                    phone:
-                        currentStore.phone || "",
-                    longitude:
-                        currentStore.location
-                            ?.coordinates?.[0] ??
-                        "",
-                    latitude:
-                        currentStore.location
-                            ?.coordinates?.[1] ??
-                        ""
-                });
+                setFormData(getStoreFormData(currentStore));
 
             } catch (error) {
                 console.log(
@@ -123,6 +118,35 @@ function OwnerStore() {
         }));
     };
 
+    const handleImageSelection = async (event) => {
+        const file = event.target.files?.[0];
+        event.target.value = "";
+
+        if (!file) {
+            return;
+        }
+
+        try {
+            setProcessingImage(true);
+            setError("");
+            setSuccess("");
+
+            const image = await prepareImage(file, {
+                maxWidth: 1600,
+                maxHeight: 1000
+            });
+
+            setFormData((previous) => ({
+                ...previous,
+                image
+            }));
+        } catch (error) {
+            setError(error.message);
+        } finally {
+            setProcessingImage(false);
+        }
+    };
+
 
     // =====================================================
     // EDIT
@@ -139,6 +163,22 @@ function OwnerStore() {
         });
     };
 
+    const handleStoreSelection = (event) => {
+        const selectedStore = stores.find(
+            (item) => item._id === event.target.value
+        );
+
+        if (!selectedStore) {
+            return;
+        }
+
+        setStore(selectedStore);
+        setFormData(getStoreFormData(selectedStore));
+        setEditing(false);
+        setError("");
+        setSuccess("");
+    };
+
 
     // =====================================================
     // CANCEL
@@ -149,26 +189,7 @@ function OwnerStore() {
             return;
         }
 
-        setFormData({
-            name:
-                store.name || "",
-            description:
-                store.description || "",
-            category:
-                store.category || "",
-            address:
-                store.address || "",
-            phone:
-                store.phone || "",
-            longitude:
-                store.location
-                    ?.coordinates?.[0] ??
-                "",
-            latitude:
-                store.location
-                    ?.coordinates?.[1] ??
-                ""
-        });
+        setFormData(getStoreFormData(store));
 
         setError("");
         setSuccess("");
@@ -205,6 +226,8 @@ function OwnerStore() {
                             formData.address.trim(),
                         phone:
                             formData.phone.trim(),
+                        image:
+                            formData.image.trim(),
                         longitude:
                             Number(
                                 formData.longitude
@@ -226,28 +249,14 @@ function OwnerStore() {
                 response.data.store;
 
             setStore(updatedStore);
-
-            setFormData({
-                name:
-                    updatedStore.name || "",
-                description:
-                    updatedStore.description ||
-                    "",
-                category:
-                    updatedStore.category || "",
-                address:
-                    updatedStore.address || "",
-                phone:
-                    updatedStore.phone || "",
-                longitude:
-                    updatedStore.location
-                        ?.coordinates?.[0] ??
-                    "",
-                latitude:
-                    updatedStore.location
-                        ?.coordinates?.[1] ??
-                    ""
-            });
+            setStores((current) =>
+                current.map((item) =>
+                    item._id === updatedStore._id
+                        ? updatedStore
+                        : item
+                )
+            );
+            setFormData(getStoreFormData(updatedStore));
 
             setEditing(false);
 
@@ -321,8 +330,15 @@ function OwnerStore() {
                     }
                 );
 
-            setStore(
-                response.data.store
+            const updatedStore = response.data.store;
+
+            setStore(updatedStore);
+            setStores((current) =>
+                current.map((item) =>
+                    item._id === updatedStore._id
+                        ? updatedStore
+                        : item
+                )
             );
 
             setSuccess(
@@ -481,12 +497,12 @@ function OwnerStore() {
                                 </p>
 
                                 <h1 className="mt-1 text-3xl font-black tracking-tight text-gray-900 md:text-4xl">
-                                    Store Management
+                                    Restaurant Management
                                 </h1>
 
                                 <p className="mt-2 text-sm leading-6 text-gray-500">
-                                    View and manage your
-                                    store information.
+                                    View and manage restaurant
+                                    information and pictures.
                                 </p>
 
                             </div>
@@ -520,6 +536,25 @@ function OwnerStore() {
                     </div>
 
                 </div>
+
+                {stores.length > 1 && (
+                    <div className="glass-strong mt-6 rounded-2xl p-5 shadow-lg">
+                        <label className="mb-2 block text-xs font-black uppercase tracking-wider text-gray-400">
+                            Restaurant to manage
+                        </label>
+                        <select
+                            value={store._id}
+                            onChange={handleStoreSelection}
+                            className="glass-input w-full rounded-xl px-4 py-3 font-bold text-gray-800 outline-none"
+                        >
+                            {stores.map((item) => (
+                                <option key={item._id} value={item._id}>
+                                    {item.name} — {item.category}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                )}
 
 
                 {/* =================================================
@@ -659,6 +694,75 @@ function OwnerStore() {
                                     placeholder="Tell customers about your store..."
                                     className="glass-input w-full resize-none rounded-xl px-4 py-3 text-gray-800 outline-none"
                                 />
+
+                            </div>
+
+
+                            {/* RESTAURANT IMAGE */}
+
+                            <div className="sm:col-span-2">
+
+                                <label className="mb-2 block text-sm font-black text-gray-700">
+                                    Restaurant Picture
+                                </label>
+
+                                <div className="grid gap-3 sm:grid-cols-[auto_1fr]">
+                                    <label className="glass-button flex cursor-pointer items-center justify-center rounded-xl px-5 py-3 text-sm font-black text-gray-700">
+                                        {processingImage
+                                            ? "Processing Image..."
+                                            : "📷 Choose Image"}
+                                        <input
+                                            type="file"
+                                            accept="image/jpeg,image/png,image/webp"
+                                            onChange={handleImageSelection}
+                                            disabled={processingImage || saving}
+                                            className="sr-only"
+                                        />
+                                    </label>
+
+                                    <input
+                                        type="url"
+                                        name="image"
+                                        value={
+                                            formData.image.startsWith("data:image/")
+                                                ? ""
+                                                : formData.image
+                                        }
+                                        onChange={handleChange}
+                                        placeholder={
+                                            formData.image.startsWith("data:image/")
+                                                ? "Uploaded image selected"
+                                                : "Or paste an image URL"
+                                        }
+                                        className="glass-input w-full rounded-xl px-4 py-3 text-gray-800 outline-none"
+                                    />
+                                </div>
+
+                                <p className="mt-2 text-xs text-gray-400">
+                                    JPEG, PNG or WebP. Images are compressed before upload.
+                                </p>
+
+                                {formData.image && (
+                                    <div className="mt-4 overflow-hidden rounded-2xl border border-white/70 bg-white/40 p-3">
+                                        <img
+                                            src={formData.image}
+                                            alt="Restaurant preview"
+                                            className="h-56 w-full rounded-xl object-cover"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setFormData((previous) => ({
+                                                    ...previous,
+                                                    image: ""
+                                                }))
+                                            }
+                                            className="mt-3 w-full rounded-xl border border-red-200/70 bg-red-50/70 px-4 py-2.5 text-sm font-black text-red-600"
+                                        >
+                                            Remove Picture
+                                        </button>
+                                    </div>
+                                )}
 
                             </div>
 
@@ -810,7 +914,7 @@ function OwnerStore() {
                                 onClick={
                                     handleCancel
                                 }
-                                disabled={saving}
+                                disabled={saving || processingImage}
                                 className="glass-button rounded-xl px-6 py-3 font-black text-gray-700 disabled:opacity-50"
                             >
                                 Cancel
@@ -818,7 +922,7 @@ function OwnerStore() {
 
                             <button
                                 type="submit"
-                                disabled={saving}
+                                disabled={saving || processingImage}
                                 className="glass-orange rounded-xl px-6 py-3 font-black disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 {saving
@@ -847,8 +951,18 @@ function OwnerStore() {
 
                                     <div className="flex items-center gap-5">
 
-                                        <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-[1.5rem] border border-white/70 bg-white/60 text-4xl shadow-lg backdrop-blur-xl">
-                                            🍽️
+                                        <div className="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-[1.5rem] border border-white/70 bg-white/60 text-4xl shadow-lg backdrop-blur-xl">
+                                            <span aria-hidden="true">🍽️</span>
+                                            {store.image && (
+                                                <img
+                                                    src={store.image}
+                                                    alt={store.name}
+                                                    className="absolute inset-0 h-full w-full object-cover"
+                                                    onError={(event) => {
+                                                        event.currentTarget.style.display = "none";
+                                                    }}
+                                                />
+                                            )}
                                         </div>
 
                                         <div>

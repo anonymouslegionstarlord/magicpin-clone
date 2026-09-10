@@ -30,6 +30,11 @@ const storeSchema = new mongoose.Schema(
             trim: true
         },
 
+        image: {
+            type: String,
+            default: ""
+        },
+
         deliveryFee: {
             type: Number,
             default: 40,

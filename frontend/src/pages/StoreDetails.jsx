@@ -313,6 +313,17 @@ function StoreDetails() {
                             🏪
                         </div>
 
+                        {store.image && (
+                            <img
+                                src={store.image}
+                                alt={store.name}
+                                className="absolute inset-0 h-full w-full object-cover"
+                                onError={(event) => {
+                                    event.currentTarget.style.display = "none";
+                                }}
+                            />
+                        )}
+
 
                         {store.category && (
                             <span className="absolute right-5 top-5 rounded-full border border-white/70 bg-white/65 px-4 py-2 text-sm font-black text-orange-700 shadow-lg backdrop-blur-xl">

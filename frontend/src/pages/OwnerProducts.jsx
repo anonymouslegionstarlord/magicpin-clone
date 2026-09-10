@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import API from "../api/api";
+import { prepareImage } from "../utils/imageUpload";
 
 const emptyForm = {
     name: "",
@@ -29,6 +30,7 @@ const OwnerProducts = () => {
 
     const [showForm, setShowForm] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+    const [processingImage, setProcessingImage] = useState(false);
     const [deletingProduct, setDeletingProduct] = useState(null);
     const [togglingProduct, setTogglingProduct] = useState(null);
 
@@ -182,6 +184,32 @@ const OwnerProducts = () => {
                     ? checked
                     : value
         }));
+    };
+
+    const handleImageSelection = async (event) => {
+        const file = event.target.files?.[0];
+        event.target.value = "";
+
+        if (!file) {
+            return;
+        }
+
+        try {
+            setProcessingImage(true);
+            setError("");
+            setSuccess("");
+
+            const image = await prepareImage(file);
+
+            setForm((current) => ({
+                ...current,
+                image
+            }));
+        } catch (error) {
+            setError(error.message);
+        } finally {
+            setProcessingImage(false);
+        }
     };
 
 
@@ -1029,24 +1057,69 @@ const OwnerProducts = () => {
 
                             {/* IMAGE */}
 
-                            <div>
+                            <div className="md:col-span-2">
 
                                 <label className="mb-2 block text-sm font-black text-gray-700">
-                                    Image URL
+                                    Menu Item Picture
                                 </label>
 
-                                <input
-                                    type="text"
-                                    name="image"
-                                    value={
-                                        form.image
-                                    }
-                                    onChange={
-                                        handleChange
-                                    }
-                                    placeholder="https://..."
-                                    className="glass-input w-full rounded-xl px-4 py-3 text-gray-800 outline-none"
-                                />
+                                <div className="grid gap-3 sm:grid-cols-[auto_1fr]">
+                                    <label className="glass-button flex cursor-pointer items-center justify-center rounded-xl px-5 py-3 text-sm font-black text-gray-700">
+                                        {processingImage
+                                            ? "Processing Image..."
+                                            : "📷 Choose Image"}
+                                        <input
+                                            type="file"
+                                            accept="image/jpeg,image/png,image/webp"
+                                            onChange={handleImageSelection}
+                                            disabled={processingImage || submitting}
+                                            className="sr-only"
+                                        />
+                                    </label>
+
+                                    <input
+                                        type="url"
+                                        name="image"
+                                        value={
+                                            form.image.startsWith("data:image/")
+                                                ? ""
+                                                : form.image
+                                        }
+                                        onChange={handleChange}
+                                        placeholder={
+                                            form.image.startsWith("data:image/")
+                                                ? "Uploaded image selected"
+                                                : "Or paste an image URL"
+                                        }
+                                        className="glass-input w-full rounded-xl px-4 py-3 text-gray-800 outline-none"
+                                    />
+                                </div>
+
+                                <p className="mt-2 text-xs text-gray-400">
+                                    JPEG, PNG or WebP. Images are compressed before upload.
+                                </p>
+
+                                {form.image && (
+                                    <div className="mt-4 overflow-hidden rounded-2xl border border-white/70 bg-white/40 p-3">
+                                        <img
+                                            src={form.image}
+                                            alt="Menu item preview"
+                                            className="h-52 w-full rounded-xl object-cover"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setForm((current) => ({
+                                                    ...current,
+                                                    image: ""
+                                                }))
+                                            }
+                                            className="mt-3 w-full rounded-xl border border-red-200/70 bg-red-50/70 px-4 py-2.5 text-sm font-black text-red-600"
+                                        >
+                                            Remove Picture
+                                        </button>
+                                    </div>
+                                )}
 
                             </div>
 
@@ -1124,7 +1197,7 @@ const OwnerProducts = () => {
                                 <button
                                     type="submit"
                                     disabled={
-                                        submitting
+                                        submitting || processingImage
                                     }
                                     className="glass-orange rounded-xl px-6 py-3 font-black disabled:cursor-not-allowed disabled:opacity-60"
                                 >

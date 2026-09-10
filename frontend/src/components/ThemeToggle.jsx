@@ -1,34 +1,30 @@
-import { useState } from "react";
-
-const THEME_STORAGE_KEY = "magicpin-theme";
+import { useEffect, useState } from "react";
+import {
+    getCurrentTheme,
+    THEME_CHANGE_EVENT,
+    toggleTheme
+} from "../utils/theme";
 
 function ThemeToggle() {
     const [isDark, setIsDark] = useState(() =>
-        document.documentElement.classList.contains("dark")
+        getCurrentTheme() === "dark"
     );
 
-    const toggleTheme = () => {
-        const nextIsDark = !isDark;
-        const nextTheme = nextIsDark
-            ? "dark"
-            : "light";
+    useEffect(() => {
+        const updateTheme = (event) => {
+            setIsDark(event.detail.theme === "dark");
+        };
 
-        document.documentElement.classList.toggle(
-            "dark",
-            nextIsDark
-        );
-        document.documentElement.dataset.theme = nextTheme;
-        localStorage.setItem(
-            THEME_STORAGE_KEY,
-            nextTheme
-        );
-        setIsDark(nextIsDark);
-    };
+        window.addEventListener(THEME_CHANGE_EVENT, updateTheme);
+
+        return () =>
+            window.removeEventListener(THEME_CHANGE_EVENT, updateTheme);
+    }, []);
 
     return (
         <button
             type="button"
-            onClick={toggleTheme}
+            onClick={() => toggleTheme()}
             aria-label={
                 isDark
                     ? "Switch to light mode"

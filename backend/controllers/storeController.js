@@ -1,4 +1,8 @@
 const Store = require("../models/Store");
+const {
+    ImageValidationError,
+    normalizeImage
+} = require("../utils/imageValidation");
 
 const createStore = async (req, res) => {
     try {
@@ -8,6 +12,7 @@ const createStore = async (req, res) => {
             category,
             address,
             phone,
+            image,
             longitude,
             latitude
         } = req.body;
@@ -31,6 +36,7 @@ const createStore = async (req, res) => {
             category,
             address,
             phone,
+            image: normalizeImage(image),
 
             location: {
                 type: "Point",
@@ -50,6 +56,13 @@ const createStore = async (req, res) => {
         });
 
     } catch (error) {
+        if (error instanceof ImageValidationError) {
+            return res.status(400).json({
+                success: false,
+                message: error.message
+            });
+        }
+
         console.log(error);
 
         res.status(500).json({
@@ -353,6 +366,7 @@ const updateStore = async (req, res) => {
             category,
             address,
             phone,
+            image,
             longitude,
             latitude,
             isActive
@@ -398,6 +412,10 @@ const updateStore = async (req, res) => {
 
         if (phone !== undefined) {
             store.phone = phone.trim();
+        }
+
+        if (image !== undefined) {
+            store.image = normalizeImage(image);
         }
 
         // Update location
@@ -476,6 +494,13 @@ const updateStore = async (req, res) => {
         });
 
     } catch (error) {
+        if (error instanceof ImageValidationError) {
+            return res.status(400).json({
+                success: false,
+                message: error.message
+            });
+        }
+
         console.log("Update store error:", error);
 
         res.status(500).json({

@@ -110,7 +110,7 @@ const fetchNearbyRestaurants = async ({
         method: "POST",
         headers: {
             "Content-Type": "application/x-www-form-urlencoded",
-            "User-Agent": "MagicpinClone-RestaurantImporter/1.0"
+            "User-Agent": "FoodieHub-RestaurantImporter/1.0"
         },
         body: new URLSearchParams({ data: query }).toString()
     });
@@ -208,7 +208,7 @@ const loadAuthorizedMenuFeed = async (feedUrl) => {
     const feed = await fetchJson(parsedUrl.toString(), {
         headers: {
             Accept: "application/json",
-            "User-Agent": "MagicpinClone-MenuImporter/1.0"
+            "User-Agent": "FoodieHub-MenuImporter/1.0"
         }
     });
 

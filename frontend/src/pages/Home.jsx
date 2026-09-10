@@ -818,6 +818,17 @@ function Home() {
                                                 🏪
                                             </div>
 
+                                            {store.image && (
+                                                <img
+                                                    src={store.image}
+                                                    alt={store.name}
+                                                    className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                                                    onError={(event) => {
+                                                        event.currentTarget.style.display = "none";
+                                                    }}
+                                                />
+                                            )}
+
 
                                             {store.category && (
 

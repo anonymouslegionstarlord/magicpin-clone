@@ -9,7 +9,7 @@ function Footer() {
                         to="/"
                         className="text-lg font-black text-gray-900"
                     >
-                        Magic<span className="text-orange-600">pin</span>
+                        Foodie<span className="text-orange-600">Hub</span>
                     </Link>
                     <p className="mt-1 text-xs text-gray-500">
                         Discover, shop and enjoy nearby.

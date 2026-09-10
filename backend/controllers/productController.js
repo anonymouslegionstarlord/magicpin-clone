@@ -1,5 +1,9 @@
 const Product = require("../models/Product");
 const Store = require("../models/Store");
+const {
+    ImageValidationError,
+    normalizeImage
+} = require("../utils/imageValidation");
 
 const createProduct = async (req, res) => {
     try {
@@ -50,7 +54,7 @@ const createProduct = async (req, res) => {
             description,
             price,
             category,
-            image,
+            image: normalizeImage(image),
             store: storeId
         });
 
@@ -61,6 +65,13 @@ const createProduct = async (req, res) => {
         });
 
     } catch (error) {
+        if (error instanceof ImageValidationError) {
+            return res.status(400).json({
+                success: false,
+                message: error.message
+            });
+        }
+
         console.log(error);
 
         res.status(500).json({
@@ -158,7 +169,7 @@ const updateProduct = async (req, res) => {
     }
 
     if (image !== undefined) {
-      product.image = image.trim();
+      product.image = normalizeImage(image);
     }
 
     if (isAvailable !== undefined) {
@@ -176,6 +187,13 @@ const updateProduct = async (req, res) => {
       product: updatedProduct
     });
   } catch (error) {
+    if (error instanceof ImageValidationError) {
+      return res.status(400).json({
+        success: false,
+        message: error.message
+      });
+    }
+
     console.log("Update product error:", error);
 
     res.status(500).json({

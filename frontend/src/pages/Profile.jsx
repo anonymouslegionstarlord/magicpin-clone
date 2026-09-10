@@ -1,6 +1,39 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../api/api";
+import { prepareImage } from "../utils/imageUpload";
+
+const syncStoredUser = (profile, canAccessOwnerDashboard) => {
+    const storedUser = (() => {
+        try {
+            return JSON.parse(
+                localStorage.getItem("user") || "{}"
+            );
+        } catch {
+            return {};
+        }
+    })();
+
+    localStorage.setItem(
+        "user",
+        JSON.stringify({
+            ...storedUser,
+            id: storedUser.id || profile._id,
+            name: profile.name,
+            email: profile.email,
+            role: profile.role,
+            profileImage: profile.profileImage || "",
+            canAccessOwnerDashboard:
+                canAccessOwnerDashboard ??
+                storedUser.canAccessOwnerDashboard ??
+                false
+        })
+    );
+
+    window.dispatchEvent(
+        new Event("foodiehub-user-updated")
+    );
+};
 
 function Profile() {
     const navigate = useNavigate();
@@ -8,6 +41,11 @@ function Profile() {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+    const [pendingImage, setPendingImage] = useState("");
+    const [processingImage, setProcessingImage] = useState(false);
+    const [savingImage, setSavingImage] = useState(false);
+    const [imageError, setImageError] = useState("");
+    const [imageMessage, setImageMessage] = useState("");
 
     const token = localStorage.getItem("token");
 
@@ -28,7 +66,14 @@ function Profile() {
                     }
                 );
 
-                setUser(response.data.user);
+                const profile = response.data.user;
+
+                setUser(profile);
+                setPendingImage(profile.profileImage || "");
+                syncStoredUser(
+                    profile,
+                    response.data.permissions?.ownerDashboard
+                );
 
             } catch (error) {
                 console.log(error);
@@ -51,8 +96,73 @@ function Profile() {
     const logout = () => {
         localStorage.removeItem("token");
         localStorage.removeItem("user");
+        window.dispatchEvent(
+            new Event("foodiehub-user-updated")
+        );
 
         navigate("/login");
+    };
+
+    const handleImageSelection = async (event) => {
+        const file = event.target.files?.[0];
+        event.target.value = "";
+
+        if (!file) {
+            return;
+        }
+
+        try {
+            setProcessingImage(true);
+            setImageError("");
+            setImageMessage("");
+
+            const image = await prepareImage(file, {
+                maxWidth: 640,
+                maxHeight: 640,
+                maxOutputBytes: 650_000
+            });
+
+            setPendingImage(image);
+        } catch (error) {
+            setImageError(error.message);
+        } finally {
+            setProcessingImage(false);
+        }
+    };
+
+    const saveProfileImage = async (image) => {
+        try {
+            setSavingImage(true);
+            setImageError("");
+            setImageMessage("");
+
+            const response = await API.patch(
+                "/users/me/profile-image",
+                { image },
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
+                }
+            );
+
+            const updatedUser = response.data.user;
+
+            setUser(updatedUser);
+            setPendingImage(updatedUser.profileImage || "");
+            syncStoredUser(
+                updatedUser,
+                response.data.permissions?.ownerDashboard
+            );
+            setImageMessage(response.data.message);
+        } catch (error) {
+            setImageError(
+                error.response?.data?.message ||
+                "Unable to update profile picture"
+            );
+        } finally {
+            setSavingImage(false);
+        }
     };
 
 
@@ -194,8 +304,18 @@ function Profile() {
 
                             {/* AVATAR */}
 
-                            <div className="flex h-28 w-28 items-center justify-center rounded-full border-4 border-white/70 bg-white/30 text-5xl shadow-xl backdrop-blur-xl">
-                                👤
+                            <div className="relative flex h-28 w-28 items-center justify-center overflow-hidden rounded-full border-4 border-white/70 bg-white/30 text-5xl shadow-xl backdrop-blur-xl">
+                                <span aria-hidden="true">👤</span>
+                                {pendingImage && (
+                                    <img
+                                        src={pendingImage}
+                                        alt={`${user?.name || "User"}'s profile`}
+                                        className="absolute inset-0 h-full w-full object-cover"
+                                        onError={(event) => {
+                                            event.currentTarget.style.display = "none";
+                                        }}
+                                    />
+                                )}
                             </div>
 
                             <h2 className="mt-5 text-3xl font-black text-white">
@@ -222,6 +342,77 @@ function Profile() {
                         <p className="mt-1 text-sm text-gray-500">
                             Your account details
                         </p>
+
+
+                        {/* PROFILE PICTURE */}
+
+                        <div className="glass mt-6 rounded-2xl p-5">
+
+                            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+
+                                <div>
+                                    <p className="font-black text-gray-800">
+                                        Profile Picture
+                                    </p>
+                                    <p className="mt-1 text-xs leading-5 text-gray-500">
+                                        Choose a JPEG, PNG or WebP image. FoodieHub compresses it before upload.
+                                    </p>
+                                </div>
+
+                                <div className="flex flex-wrap gap-2">
+                                    <label className="glass-button cursor-pointer rounded-xl px-4 py-2.5 text-sm font-black text-gray-700">
+                                        {processingImage
+                                            ? "Processing..."
+                                            : "Choose Photo"}
+                                        <input
+                                            type="file"
+                                            accept="image/jpeg,image/png,image/webp"
+                                            onChange={handleImageSelection}
+                                            disabled={processingImage || savingImage}
+                                            className="sr-only"
+                                        />
+                                    </label>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => saveProfileImage(pendingImage)}
+                                        disabled={
+                                            processingImage ||
+                                            savingImage ||
+                                            pendingImage === (user?.profileImage || "")
+                                        }
+                                        className="glass-orange rounded-xl px-4 py-2.5 text-sm font-black disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                        {savingImage ? "Saving..." : "Save Photo"}
+                                    </button>
+
+                                    {(pendingImage || user?.profileImage) && (
+                                        <button
+                                            type="button"
+                                            onClick={() => saveProfileImage("")}
+                                            disabled={savingImage}
+                                            className="rounded-xl border border-red-200/70 bg-red-50/70 px-4 py-2.5 text-sm font-black text-red-600 disabled:opacity-50"
+                                        >
+                                            Remove
+                                        </button>
+                                    )}
+                                </div>
+
+                            </div>
+
+                            {imageError && (
+                                <p className="mt-3 text-sm font-bold text-red-600">
+                                    ⚠️ {imageError}
+                                </p>
+                            )}
+
+                            {imageMessage && (
+                                <p className="mt-3 text-sm font-bold text-green-700">
+                                    ✓ {imageMessage}
+                                </p>
+                            )}
+
+                        </div>
 
 
                         <div className="mt-6 grid gap-4 md:grid-cols-2">

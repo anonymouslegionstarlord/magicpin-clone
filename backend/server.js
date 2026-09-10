@@ -40,7 +40,7 @@ app.use(
    Middleware
 ========================= */
 
-app.use(express.json());
+app.use(express.json({ limit: "3mb" }));
 
 /* =========================
    Health Routes
@@ -49,7 +49,7 @@ app.use(express.json());
 app.get("/", (req, res) => {
     res.json({
         success: true,
-        message: "Magicpin Backend is Running!"
+        message: "FoodieHub Backend is Running!"
     });
 });
 
@@ -135,6 +135,13 @@ app.use("/api/import", importRoutes);
 
 app.use((err, req, res, next) => {
     console.error("API Error:", err);
+
+    if (err.type === "entity.too.large") {
+        return res.status(413).json({
+            success: false,
+            message: "Uploaded image is too large"
+        });
+    }
 
     res.status(500).json({
         success: false,

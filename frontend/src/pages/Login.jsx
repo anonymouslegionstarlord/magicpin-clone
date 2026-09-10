@@ -34,6 +34,9 @@ function Login() {
                 "user",
                 JSON.stringify(response.data.user)
             );
+            window.dispatchEvent(
+                new Event("foodiehub-user-updated")
+            );
 
             navigate("/");
 
@@ -68,7 +71,7 @@ function Login() {
                 <div className="mb-8 text-center">
 
                     <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-orange-500 text-2xl font-black text-white shadow-xl shadow-orange-500/25">
-                        M
+                        F
                     </div>
 
                     <h1 className="mt-5 text-3xl font-black tracking-tight text-gray-900">
@@ -76,7 +79,7 @@ function Login() {
                     </h1>
 
                     <p className="mt-2 text-sm text-gray-500">
-                        Login to continue to Magicpin
+                        Login to continue to FoodieHub
                     </p>
 
                 </div>

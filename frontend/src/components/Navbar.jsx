@@ -1,25 +1,48 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import ThemeToggle from "./ThemeToggle";
+import { toggleTheme } from "../utils/theme";
+
+const USER_CHANGE_EVENT = "foodiehub-user-updated";
+
+const readStoredUser = () => {
+    try {
+        return JSON.parse(
+            localStorage.getItem("user") || "null"
+        );
+    } catch {
+        return null;
+    }
+};
 
 function Navbar() {
     const navigate = useNavigate();
     const [ownerMenuOpen, setOwnerMenuOpen] = useState(false);
+    const [user, setUser] = useState(readStoredUser);
     const ownerMenuRef = useRef(null);
 
     const token = localStorage.getItem("token");
-
-    const user = JSON.parse(
-        localStorage.getItem("user") || "null"
-    );
 
     const logout = () => {
         setOwnerMenuOpen(false);
         localStorage.removeItem("token");
         localStorage.removeItem("user");
+        window.dispatchEvent(new Event(USER_CHANGE_EVENT));
 
         navigate("/login");
     };
+
+    useEffect(() => {
+        const syncUser = () => setUser(readStoredUser());
+
+        window.addEventListener(USER_CHANGE_EVENT, syncUser);
+        window.addEventListener("storage", syncUser);
+
+        return () => {
+            window.removeEventListener(USER_CHANGE_EVENT, syncUser);
+            window.removeEventListener("storage", syncUser);
+        };
+    }, []);
 
     useEffect(() => {
         const closeOwnerMenu = (event) => {
@@ -98,28 +121,31 @@ function Navbar() {
                             LOGO
                         ================================= */}
 
-                        <Link
-                            to="/"
-                            className="group flex items-center gap-2"
-                        >
+                        <div className="group flex items-center gap-2">
 
-                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500/90 text-xl text-white shadow-lg shadow-orange-500/20 transition group-hover:scale-105">
-                                M
-                            </div>
+                            <button
+                                type="button"
+                                onClick={() => toggleTheme()}
+                                aria-label="Toggle light and dark mode"
+                                title="Click the FoodieHub icon to change theme"
+                                className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500/90 text-xl font-black text-white shadow-lg shadow-orange-500/20 transition hover:scale-105 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2"
+                            >
+                                F
+                            </button>
 
-                            <div className="hidden sm:block">
+                            <Link to="/" className="hidden sm:block">
 
                                 <div className="text-xl font-bold tracking-tight text-gray-900">
-                                    Magic<span className="text-orange-600">pin</span>
+                                    Foodie<span className="text-orange-600">Hub</span>
                                 </div>
 
                                 <div className="text-[10px] font-medium uppercase tracking-widest text-gray-400">
                                     Discover • Shop • Enjoy
                                 </div>
 
-                            </div>
+                            </Link>
 
-                        </Link>
+                        </div>
 
 
                         {/* ================================
@@ -210,7 +236,7 @@ function Navbar() {
                                             >
                                                 <span>🏪</span>
                                                 <span className="hidden lg:inline">
-                                                    Owner
+                                                    Admin
                                                 </span>
                                                 <span
                                                     className={`text-[10px] transition-transform ${
@@ -230,7 +256,7 @@ function Navbar() {
                                                 >
                                                     <div className="border-b border-white/60 px-3 py-2.5">
                                                         <p className="text-xs font-black uppercase tracking-[0.18em] text-orange-500">
-                                                            Atlas Owner Menu
+                                                            Atlas Admin Menu
                                                         </p>
                                                     </div>
 
@@ -291,8 +317,18 @@ function Navbar() {
                                         className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-white/60 hover:text-orange-600"
                                     >
 
-                                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-100 text-orange-600">
-                                            👤
+                                        <div className="relative flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-orange-100 text-orange-600">
+                                            <span aria-hidden="true">👤</span>
+                                            {user?.profileImage && (
+                                                <img
+                                                    src={user.profileImage}
+                                                    alt=""
+                                                    className="absolute inset-0 h-full w-full object-cover"
+                                                    onError={(event) => {
+                                                        event.currentTarget.style.display = "none";
+                                                    }}
+                                                />
+                                            )}
                                         </div>
 
                                         <span className="hidden md:inline max-w-24 truncate">
