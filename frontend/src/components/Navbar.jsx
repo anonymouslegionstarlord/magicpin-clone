@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import ThemeToggle from "./ThemeToggle";
 import { toggleTheme } from "../utils/theme";
 
 const USER_CHANGE_EVENT = "foodiehub-user-updated";
@@ -180,9 +179,6 @@ function Navbar() {
                                     >
                                         Contact
                                     </Link>
-
-
-                                    <ThemeToggle />
                                 </>
                             )}
 
