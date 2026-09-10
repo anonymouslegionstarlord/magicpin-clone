@@ -58,6 +58,61 @@ app.get("/api/test", (req, res) => {
 });
 
 /* =========================
+   MongoDB Connection
+========================= */
+
+let mongoConnectionPromise = null;
+
+const connectDB = async () => {
+    if (mongoose.connection.readyState === 1) {
+        return mongoose.connection;
+    }
+
+    if (!process.env.MONGO_URI) {
+        throw new Error("MONGO_URI is not configured");
+    }
+
+    if (!mongoConnectionPromise) {
+        mongoConnectionPromise = mongoose
+            .connect(process.env.MONGO_URI, {
+                maxPoolSize: 10,
+                serverSelectionTimeoutMS: 10000
+            })
+            .then(() => {
+                console.log("MongoDB connected successfully");
+                return mongoose.connection;
+            })
+            .catch((error) => {
+                mongoConnectionPromise = null;
+                throw error;
+            });
+    }
+
+    return mongoConnectionPromise;
+};
+
+/* =========================
+   Database Middleware
+========================= */
+
+app.use("/api", async (req, res, next) => {
+    try {
+        await connectDB();
+        next();
+    } catch (error) {
+        console.error(
+            "MongoDB connection failed:",
+            error.message
+        );
+
+        res.status(503).json({
+            success: false,
+            message: "Database connection unavailable"
+        });
+    }
+});
+
+/* =========================
    API Routes
 ========================= */
 
@@ -80,33 +135,6 @@ app.use((err, req, res, next) => {
         message: "Internal server error"
     });
 });
-
-/* =========================
-   MongoDB Connection
-========================= */
-
-let mongoConnected = false;
-
-const connectDB = async () => {
-    if (mongoConnected) {
-        return;
-    }
-
-    try {
-        await mongoose.connect(process.env.MONGO_URI);
-
-        mongoConnected = true;
-
-        console.log("MongoDB connected successfully");
-    } catch (error) {
-        console.error(
-            "MongoDB connection failed:",
-            error.message
-        );
-
-        throw error;
-    }
-};
 
 /* =========================
    Vercel / Local Server
