@@ -699,8 +699,7 @@ const OwnerProducts = () => {
                         </h1>
 
                         <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-gray-500">
-                            You need to own a store
-                            before managing products.
+                            Add your first restaurant before adding food items to its menu.
                         </p>
 
                         {error && (
@@ -709,15 +708,12 @@ const OwnerProducts = () => {
                             </div>
                         )}
 
-                        <button
-                            type="button"
-                            onClick={() =>
-                                navigate("/")
-                            }
-                            className="glass-orange mt-7 rounded-xl px-7 py-3 font-black"
+                        <Link
+                            to="/owner/store?action=add"
+                            className="glass-orange mt-7 inline-flex rounded-xl px-7 py-3 font-black"
                         >
-                            ← Back to Home
-                        </button>
+                            + Add Your First Restaurant
+                        </Link>
 
                     </div>
 
@@ -795,7 +791,7 @@ const OwnerProducts = () => {
                                 onClick={openAddForm}
                                 className="glass-orange rounded-xl px-5 py-3 text-sm font-black"
                             >
-                                + Add Product
+                                + Add Food Item
                             </button>
 
                         </div>
@@ -974,7 +970,7 @@ const OwnerProducts = () => {
                                     <h2 className="text-2xl font-black text-gray-900">
                                         {editingProduct
                                             ? "Edit Product"
-                                            : "Add Product"}
+                                            : "Add Food Item"}
                                     </h2>
 
                                 </div>
@@ -1228,7 +1224,7 @@ const OwnerProducts = () => {
                                         ? "Saving..."
                                         : editingProduct
                                             ? "✓ Update Product"
-                                            : "+ Add Product"}
+                                            : "+ Add Food Item"}
                                 </button>
 
                             </div>

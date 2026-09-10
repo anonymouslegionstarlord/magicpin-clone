@@ -94,10 +94,23 @@ function Navbar() {
             description: "Add and update menu items"
         },
         {
+            to: "/owner/store?action=add",
+            icon: "➕",
+            label: "Add New Restaurant",
+            description: "Create a restaurant listing"
+        },
+        {
+            to: "/owner/products?action=add",
+            icon: "🥘",
+            label: "Add New Food Item",
+            description: "Add food to a restaurant menu"
+        },
+        {
             to: "/contact",
             icon: "✉️",
             label: "Contact Us",
-            description: "Get in touch"
+            description: "Get in touch",
+            dividerBefore: true
         },
         {
             to: "/support",
@@ -260,7 +273,7 @@ function Navbar() {
                                             {ownerMenuOpen && (
                                                 <div
                                                     role="menu"
-                                                    className="glass-strong absolute right-0 top-[calc(100%+0.75rem)] z-[70] w-72 overflow-hidden rounded-2xl p-2 shadow-2xl"
+                                                    className="glass-strong absolute right-0 top-[calc(100%+0.75rem)] z-[70] max-h-[calc(100vh-7rem)] w-72 overflow-y-auto rounded-2xl p-2 shadow-2xl"
                                                 >
                                                     <div className="border-b border-white/60 px-3 py-2.5">
                                                         <p className="text-xs font-black uppercase tracking-[0.18em] text-orange-500">
@@ -270,11 +283,11 @@ function Navbar() {
 
                                                     <div className="mt-1 space-y-1">
                                                         {ownerLinks.map(
-                                                            (item, index) => (
+                                                            (item) => (
                                                                 <div
                                                                     key={item.to}
                                                                     className={
-                                                                        index === 4
+                                                                        item.dividerBefore
                                                                             ? "border-t border-white/60 pt-1"
                                                                             : ""
                                                                     }

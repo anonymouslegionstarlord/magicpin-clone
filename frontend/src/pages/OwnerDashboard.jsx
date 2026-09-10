@@ -243,8 +243,26 @@ const OwnerDashboard = () => {
                         <div className="flex flex-wrap gap-3">
 
                             <Link
-                                to="/owner/orders"
+                                to="/owner/store?action=add"
                                 className="glass-orange inline-flex items-center justify-center rounded-xl px-5 py-3 text-sm font-black"
+                            >
+                                + Add Restaurant
+                            </Link>
+
+                            <Link
+                                to={
+                                    store
+                                        ? `/owner/products?store=${store._id}&action=add`
+                                        : "/owner/store?action=add"
+                                }
+                                className="glass-button inline-flex items-center justify-center rounded-xl px-5 py-3 text-sm font-black text-gray-700"
+                            >
+                                + Add Food Item
+                            </Link>
+
+                            <Link
+                                to="/owner/orders"
+                                className="glass-button inline-flex items-center justify-center rounded-xl px-5 py-3 text-sm font-black text-gray-700"
                             >
                                 📦 Manage Orders
                             </Link>

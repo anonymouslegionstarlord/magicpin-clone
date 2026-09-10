@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import {
+    Link,
+    useNavigate,
+    useSearchParams
+} from "react-router-dom";
 import API from "../api/api";
 import { prepareImage } from "../utils/imageUpload";
 
@@ -71,6 +75,8 @@ const requestBrowserLocation = () =>
 
 function OwnerStore() {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const requestedAction = searchParams.get("action") || "";
 
     const [stores, setStores] = useState([]);
     const [selectedStoreId, setSelectedStoreId] = useState("");
@@ -78,7 +84,9 @@ function OwnerStore() {
     const [loading, setLoading] = useState(true);
     const [loadingProducts, setLoadingProducts] = useState(false);
 
-    const [formMode, setFormMode] = useState("");
+    const [formMode, setFormMode] = useState(() =>
+        requestedAction === "add" ? "create" : ""
+    );
     const [formData, setFormData] = useState(emptyStoreForm);
     const [saving, setSaving] = useState(false);
     const [processingImage, setProcessingImage] = useState(false);
