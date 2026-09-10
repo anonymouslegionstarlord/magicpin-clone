@@ -164,23 +164,27 @@ function Navbar() {
                             </Link>
 
 
-                            <Link
-                                to="/support"
-                                className="hidden rounded-xl px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-white/60 hover:text-orange-600 lg:block"
-                            >
-                                Support
-                            </Link>
+                            {!user?.canAccessOwnerDashboard && (
+                                <>
+                                    <Link
+                                        to="/support"
+                                        className="hidden rounded-xl px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-white/60 hover:text-orange-600 lg:block"
+                                    >
+                                        Support
+                                    </Link>
 
 
-                            <Link
-                                to="/contact"
-                                className="hidden rounded-xl px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-white/60 hover:text-orange-600 xl:block"
-                            >
-                                Contact
-                            </Link>
+                                    <Link
+                                        to="/contact"
+                                        className="hidden rounded-xl px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-white/60 hover:text-orange-600 xl:block"
+                                    >
+                                        Contact
+                                    </Link>
 
 
-                            <ThemeToggle />
+                                    <ThemeToggle />
+                                </>
+                            )}
 
 
                             {token ? (
