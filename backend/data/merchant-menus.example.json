@@ -1,0 +1,51 @@
+{
+  "authorized": false,
+  "sourceName": "Restaurant partner feed",
+  "publicSourceUrl": "https://restaurant.example/menu",
+  "restaurants": [
+    {
+      "externalRestaurantId": "node/REPLACE_WITH_OSM_ID",
+      "deliveryFee": 40,
+      "freeDeliveryAbove": 500,
+      "replaceMenu": true,
+      "menu": [
+        {
+          "externalId": "item-001",
+          "name": "Example Menu Item",
+          "description": "Replace this sample with merchant-authorized data.",
+          "price": 199,
+          "category": "Main Course",
+          "image": "",
+          "isAvailable": true
+        }
+      ],
+      "coupons": [
+        {
+          "externalId": "offer-001",
+          "code": "WELCOME10",
+          "title": "10% off",
+          "description": "10% off the selected menu item.",
+          "type": "percentage",
+          "value": 10,
+          "minOrderAmount": 200,
+          "maxDiscount": 100,
+          "productExternalIds": ["item-001"],
+          "fundedBy": "merchant",
+          "isActive": true
+        },
+        {
+          "externalId": "offer-002",
+          "code": "FREEDEL",
+          "title": "Free delivery",
+          "description": "Free delivery above ₹500.",
+          "type": "free_delivery",
+          "value": 0,
+          "minOrderAmount": 500,
+          "productExternalIds": [],
+          "fundedBy": "platform",
+          "isActive": true
+        }
+      ]
+    }
+  ]
+}

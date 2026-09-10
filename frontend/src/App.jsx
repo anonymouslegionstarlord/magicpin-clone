@@ -25,6 +25,7 @@ import ContactUs from "./pages/ContactUs";
 
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
+import ScrollFade from "./components/ScrollFade";
 
 function App() {
     return (
@@ -60,6 +61,7 @@ function App() {
             {/* Navigation */}
 
             <Navbar />
+            <ScrollFade />
 
 
             {/* Application Routes */}

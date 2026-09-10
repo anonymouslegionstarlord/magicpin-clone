@@ -8,6 +8,7 @@ function StoreDetails() {
 
     const [store, setStore] = useState(null);
     const [products, setProducts] = useState([]);
+    const [coupons, setCoupons] = useState([]);
 
     const [loading, setLoading] = useState(true);
     const [productsLoading, setProductsLoading] = useState(true);
@@ -49,6 +50,28 @@ function StoreDetails() {
         };
 
         fetchStore();
+    }, [storeId]);
+
+
+    // ==========================================
+    // LOAD COUPONS
+    // ==========================================
+
+    useEffect(() => {
+        const fetchCoupons = async () => {
+            try {
+                const response = await API.get(
+                    `/coupons/store/${storeId}`
+                );
+
+                setCoupons(response.data.coupons || []);
+            } catch (error) {
+                console.log("Coupon load error:", error);
+                setCoupons([]);
+            }
+        };
+
+        fetchCoupons();
     }, [storeId]);
 
 
@@ -494,6 +517,35 @@ function StoreDetails() {
 
                                 </div>
 
+
+                                {store.source?.provider ===
+                                    "openstreetmap" && (
+                                    <div className="glass rounded-xl p-4 text-xs leading-5 text-gray-500">
+                                        <p className="font-black uppercase tracking-wider text-gray-400">
+                                            Listing source
+                                        </p>
+                                        <p className="mt-1.5">
+                                            <a
+                                                href={store.source.sourceUrl}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="font-bold text-orange-600 underline"
+                                            >
+                                                View map record
+                                            </a>
+                                            {" · "}
+                                            <a
+                                                href="https://www.openstreetmap.org/copyright"
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="font-bold text-orange-600 underline"
+                                            >
+                                                © OpenStreetMap contributors
+                                            </a>
+                                        </p>
+                                    </div>
+                                )}
+
                             </div>
 
                         </div>
@@ -506,6 +558,50 @@ function StoreDetails() {
                 {/* ==========================================
                     PRODUCTS
                 ========================================== */}
+
+                {coupons.length > 0 && (
+                    <div className="mt-8">
+                        <p className="text-xs font-black uppercase tracking-[0.2em] text-orange-500">
+                            Available Offers
+                        </p>
+
+                        <div className="mt-3 grid gap-3 md:grid-cols-2">
+                            {coupons.map((coupon) => (
+                                <div
+                                    key={coupon._id}
+                                    className="glass rounded-2xl border border-orange-100/70 p-4"
+                                >
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div>
+                                            <p className="font-black text-gray-900">
+                                                {coupon.title}
+                                            </p>
+                                            {coupon.description && (
+                                                <p className="mt-1 text-sm text-gray-500">
+                                                    {coupon.description}
+                                                </p>
+                                            )}
+                                        </div>
+                                        <span className="rounded-lg bg-orange-100 px-3 py-1 text-xs font-black text-orange-700">
+                                            {coupon.code}
+                                        </span>
+                                    </div>
+
+                                    <p className="mt-2 text-xs font-bold text-gray-500">
+                                        {coupon.minOrderAmount > 0
+                                            ? `Minimum order ₹${coupon.minOrderAmount}`
+                                            : "No minimum order"}
+                                        {coupon.products?.length > 0
+                                            ? ` · Valid on ${coupon.products
+                                                  .map((product) => product.name)
+                                                  .join(", ")}`
+                                            : " · Store-wide"}
+                                    </p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 <div className="mt-10">
 

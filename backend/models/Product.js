@@ -39,10 +39,39 @@ const productSchema = new mongoose.Schema(
         isAvailable: {
             type: Boolean,
             default: true
+        },
+
+        source: {
+            provider: {
+                type: String,
+                enum: ["manual", "merchant_feed"],
+                default: "manual"
+            },
+            externalId: {
+                type: String,
+                trim: true
+            },
+            lastSyncedAt: Date
         }
     },
     {
         timestamps: true
+    }
+);
+
+productSchema.index(
+    {
+        store: 1,
+        "source.externalId": 1
+    },
+    {
+        unique: true,
+        partialFilterExpression: {
+            "source.provider": "merchant_feed",
+            "source.externalId": {
+                $type: "string"
+            }
+        }
     }
 );
 

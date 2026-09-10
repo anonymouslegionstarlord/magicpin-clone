@@ -30,6 +30,18 @@ const storeSchema = new mongoose.Schema(
             trim: true
         },
 
+        deliveryFee: {
+            type: Number,
+            default: 40,
+            min: 0
+        },
+
+        freeDeliveryAbove: {
+            type: Number,
+            default: 500,
+            min: 0
+        },
+
         location: {
             type: {
                 type: String,
@@ -52,6 +64,43 @@ const storeSchema = new mongoose.Schema(
         isActive: {
             type: Boolean,
             default: true
+        },
+
+        source: {
+            provider: {
+                type: String,
+                enum: ["manual", "openstreetmap"],
+                default: "manual"
+            },
+            externalId: {
+                type: String,
+                trim: true
+            },
+            sourceUrl: {
+                type: String,
+                trim: true
+            },
+            license: {
+                type: String,
+                trim: true
+            },
+            lastSyncedAt: Date
+        },
+
+        menuSource: {
+            name: {
+                type: String,
+                trim: true
+            },
+            authorized: {
+                type: Boolean,
+                default: false
+            },
+            sourceUrl: {
+                type: String,
+                trim: true
+            },
+            lastSyncedAt: Date
         }
     },
     {
@@ -62,6 +111,22 @@ const storeSchema = new mongoose.Schema(
 storeSchema.index({
     location: "2dsphere"
 });
+
+storeSchema.index(
+    {
+        "source.provider": 1,
+        "source.externalId": 1
+    },
+    {
+        unique: true,
+        partialFilterExpression: {
+            "source.provider": "openstreetmap",
+            "source.externalId": {
+                $type: "string"
+            }
+        }
+    }
+);
 
 const Store = mongoose.model("Store", storeSchema);
 

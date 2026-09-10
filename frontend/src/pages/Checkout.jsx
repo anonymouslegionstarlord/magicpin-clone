@@ -13,6 +13,11 @@ function Checkout() {
     const [phone, setPhone] = useState("");
 
     const [placingOrder, setPlacingOrder] = useState(false);
+    const [availableCoupons, setAvailableCoupons] = useState([]);
+    const [couponCode, setCouponCode] = useState("");
+    const [couponResult, setCouponResult] = useState(null);
+    const [couponMessage, setCouponMessage] = useState("");
+    const [applyingCoupon, setApplyingCoupon] = useState(false);
 
     const token = localStorage.getItem("token");
 
@@ -69,6 +74,82 @@ function Checkout() {
 
 
     // ==========================================
+    // FETCH AVAILABLE COUPONS
+    // ==========================================
+
+    useEffect(() => {
+        const storeId = cart?.store?._id || cart?.store;
+
+        if (!storeId) {
+            return;
+        }
+
+        const fetchCoupons = async () => {
+            try {
+                const response = await API.get(
+                    `/coupons/store/${storeId}`
+                );
+
+                setAvailableCoupons(
+                    response.data.coupons || []
+                );
+            } catch (error) {
+                console.log("Coupon list error:", error);
+                setAvailableCoupons([]);
+            }
+        };
+
+        fetchCoupons();
+    }, [cart?.store]);
+
+
+    // ==========================================
+    // APPLY COUPON
+    // ==========================================
+
+    const applyCoupon = async (selectedCode = couponCode) => {
+        const normalizedCode = selectedCode
+            .trim()
+            .toUpperCase();
+
+        if (!normalizedCode) {
+            setCouponMessage("Enter a coupon code.");
+            return;
+        }
+
+        try {
+            setApplyingCoupon(true);
+            setCouponMessage("");
+            setCouponCode(normalizedCode);
+
+            const response = await API.post(
+                "/coupons/validate",
+                { code: normalizedCode },
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
+                }
+            );
+
+            setCouponResult(response.data);
+            setCouponMessage(
+                response.data.message ||
+                "Coupon applied successfully"
+            );
+        } catch (error) {
+            setCouponResult(null);
+            setCouponMessage(
+                error.response?.data?.message ||
+                "Unable to apply coupon"
+            );
+        } finally {
+            setApplyingCoupon(false);
+        }
+    };
+
+
+    // ==========================================
     // PLACE ORDER
     // ==========================================
 
@@ -97,7 +178,9 @@ function Checkout() {
                 "/orders",
                 {
                     address: address.trim(),
-                    phone: phone.trim()
+                    phone: phone.trim(),
+                    couponCode:
+                        couponResult?.coupon?.code || ""
                 },
                 {
                     headers: {
@@ -281,10 +364,25 @@ function Checkout() {
         0
     );
 
+    const freeDeliveryAbove = Number(
+        cart.store?.freeDeliveryAbove ?? 500
+    );
+
+    const baseDeliveryFee = Number(
+        cart.store?.deliveryFee ?? 40
+    );
+
     const deliveryFee =
-        subtotal >= 500 ? 0 : 40;
+        couponResult?.pricing?.deliveryFee ??
+        (subtotal >= freeDeliveryAbove
+            ? 0
+            : baseDeliveryFee);
+
+    const discount =
+        couponResult?.pricing?.discount || 0;
 
     const total =
+        couponResult?.pricing?.total ??
         subtotal + deliveryFee;
 
 
@@ -611,6 +709,86 @@ function Checkout() {
                             </div>
 
 
+                            {/* COUPONS */}
+
+                            <div className="mt-6 rounded-2xl border border-orange-100/70 bg-orange-50/50 p-4">
+
+                                <p className="text-xs font-black uppercase tracking-wider text-orange-600">
+                                    Offers & Coupons
+                                </p>
+
+                                {availableCoupons.length > 0 && (
+                                    <div className="mt-3 space-y-2">
+                                        {availableCoupons.map((coupon) => (
+                                            <button
+                                                key={coupon._id}
+                                                type="button"
+                                                onClick={() =>
+                                                    applyCoupon(coupon.code)
+                                                }
+                                                className="flex w-full items-center justify-between gap-3 rounded-xl border border-white/80 bg-white/55 px-3 py-2 text-left"
+                                            >
+                                                <span className="min-w-0">
+                                                    <span className="block truncate text-sm font-black text-gray-800">
+                                                        {coupon.title}
+                                                    </span>
+                                                    <span className="block text-xs text-gray-500">
+                                                        {coupon.code}
+                                                        {coupon.minOrderAmount > 0
+                                                            ? ` · Min ₹${coupon.minOrderAmount}`
+                                                            : ""}
+                                                    </span>
+                                                </span>
+                                                <span className="text-xs font-black text-orange-600">
+                                                    Apply
+                                                </span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+
+                                <div className="mt-3 flex gap-2">
+                                    <input
+                                        type="text"
+                                        value={couponCode}
+                                        onChange={(event) => {
+                                            setCouponCode(
+                                                event.target.value.toUpperCase()
+                                            );
+                                            setCouponResult(null);
+                                            setCouponMessage("");
+                                        }}
+                                        placeholder="Enter coupon code"
+                                        className="min-w-0 flex-1 rounded-xl border border-white/80 bg-white/65 px-3 py-2.5 text-sm font-bold uppercase text-gray-800 outline-none"
+                                    />
+
+                                    <button
+                                        type="button"
+                                        onClick={() => applyCoupon()}
+                                        disabled={applyingCoupon}
+                                        className="glass-orange rounded-xl px-4 py-2.5 text-sm font-black disabled:opacity-60"
+                                    >
+                                        {applyingCoupon
+                                            ? "Checking..."
+                                            : "Apply"}
+                                    </button>
+                                </div>
+
+                                {couponMessage && (
+                                    <p
+                                        className={`mt-2 text-xs font-bold ${
+                                            couponResult
+                                                ? "text-green-700"
+                                                : "text-red-600"
+                                        }`}
+                                    >
+                                        {couponMessage}
+                                    </p>
+                                )}
+
+                            </div>
+
+
                             {/* SUMMARY */}
 
                             <div className="mt-7 space-y-5">
@@ -653,6 +831,19 @@ function Checkout() {
                                 </div>
 
 
+                                {discount > 0 && (
+                                    <div className="flex justify-between text-green-700">
+                                        <span>
+                                            Coupon ({couponResult?.coupon?.code})
+                                        </span>
+
+                                        <span className="font-black">
+                                            -₹{discount.toFixed(2)}
+                                        </span>
+                                    </div>
+                                )}
+
+
                                 {/* DIVIDER */}
 
                                 <div className="border-t border-white/70 pt-5">
@@ -676,24 +867,34 @@ function Checkout() {
 
                             {/* FREE DELIVERY */}
 
-                            {subtotal < 500 && (
+                            {couponResult?.coupon?.type ===
+                                "free_delivery" &&
+                            discount > 0 ? (
+
+                                <div className="mt-6 rounded-2xl border border-green-100/70 bg-green-50/60 p-4 backdrop-blur">
+                                    <p className="text-sm font-bold text-green-700">
+                                        🎉 Free delivery coupon applied.
+                                    </p>
+                                </div>
+
+                            ) : subtotal < freeDeliveryAbove ? (
 
                                 <div className="mt-6 rounded-2xl border border-orange-100/70 bg-orange-50/60 p-4 backdrop-blur">
 
                                     <p className="text-sm font-bold text-orange-700">
-                                        🚚 Free delivery on orders above ₹500
+                                        🚚 Free delivery on orders above ₹{freeDeliveryAbove}
                                     </p>
 
                                     <p className="mt-1.5 text-xs leading-5 text-orange-600">
-                                        Add ₹{500 - subtotal} more to get free delivery.
+                                        Add ₹{Math.max(0, freeDeliveryAbove - subtotal)} more to get free delivery.
                                     </p>
 
                                 </div>
 
-                            )}
+                            ) : null}
 
 
-                            {subtotal >= 500 && (
+                            {subtotal >= freeDeliveryAbove && (
 
                                 <div className="mt-6 rounded-2xl border border-green-100/70 bg-green-50/60 p-4 backdrop-blur">
 

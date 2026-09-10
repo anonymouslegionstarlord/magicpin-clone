@@ -1,6 +1,14 @@
 const Order = require("../models/Order");
 const Cart = require("../models/Cart");
 const Store = require("../models/Store");
+const Coupon = require("../models/Coupon");
+const {
+    isAdminAccount
+} = require("../utils/adminAccess");
+const {
+    CouponValidationError,
+    calculatePricing
+} = require("../utils/pricing");
 
 
 // =====================================================
@@ -109,7 +117,8 @@ const createOrder = async (req, res) => {
 
         const {
             address,
-            phone
+            phone,
+            couponCode
         } = req.body;
 
 
@@ -179,6 +188,15 @@ const createOrder = async (req, res) => {
             });
         }
 
+        const store = await Store.findById(cart.store);
+
+        if (!store || !store.isActive) {
+            return res.status(400).json({
+                success: false,
+                message: "Restaurant is not available"
+            });
+        }
+
 
         // Check product availability
         for (
@@ -196,6 +214,33 @@ const createOrder = async (req, res) => {
                 });
             }
         }
+
+
+        const normalizedCouponCode = couponCode
+            ?.trim()
+            .toUpperCase();
+
+        let coupon = null;
+
+        if (normalizedCouponCode) {
+            coupon = await Coupon.findOne({
+                store: cart.store,
+                code: normalizedCouponCode
+            });
+
+            if (!coupon) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Coupon not found for this restaurant"
+                });
+            }
+        }
+
+        const pricing = calculatePricing({
+            items: cart.items,
+            store,
+            coupon
+        });
 
 
         // Create order items
@@ -217,28 +262,12 @@ const createOrder = async (req, res) => {
             );
 
 
-        // Calculate subtotal
-        const subtotal =
-            orderItems.reduce(
-                (sum, item) =>
-                    sum +
-                    item.price *
-                    item.quantity,
-                0
-            );
-
-
-        // Delivery fee
-        const deliveryFee =
-            subtotal >= 500
-                ? 0
-                : 40;
-
-
-        // Final total
-        const total =
-            subtotal +
-            deliveryFee;
+        const {
+            subtotal,
+            deliveryFee,
+            discount,
+            total
+        } = pricing;
 
 
         // Create order
@@ -263,6 +292,14 @@ const createOrder = async (req, res) => {
                 subtotal,
 
                 deliveryFee,
+
+                coupon:
+                    coupon?._id || null,
+
+                couponCode:
+                    coupon?.code || "",
+
+                discount,
 
                 total
             });
@@ -296,6 +333,13 @@ const createOrder = async (req, res) => {
         });
 
     } catch (error) {
+
+        if (error instanceof CouponValidationError) {
+            return res.status(400).json({
+                success: false,
+                message: error.message
+            });
+        }
 
         console.log(
             "Create order error:",
@@ -356,15 +400,22 @@ const getMyOrders = async (req, res) => {
 const getOrderById = async (req, res) => {
     try {
 
-        const order =
-            await Order.findOne({
-                _id:
-                    req.params.id,
+        const canManageOrder = isAdminAccount({
+            role: req.userRole,
+            email: req.userEmail
+        });
 
-                user:
-                    req.userId
-            })
+        const orderFilter = canManageOrder
+            ? { _id: req.params.id }
+            : {
+                _id: req.params.id,
+                user: req.userId
+            };
+
+        const order =
+            await Order.findOne(orderFilter)
                 .populate("store")
+                .populate("user", "name email phone")
                 .populate(
                     "items.product"
                 );
@@ -381,6 +432,7 @@ const getOrderById = async (req, res) => {
 
         res.status(200).json({
             success: true,
+            canManage: canManageOrder,
             order
         });
 

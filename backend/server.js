@@ -18,6 +18,8 @@ const productRoutes = require("./routes/productRoutes");
 const cartRoutes = require("./routes/cartRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const supportRoutes = require("./routes/supportRoutes");
+const couponRoutes = require("./routes/couponRoutes");
+const importRoutes = require("./routes/importRoutes");
 
 const app = express();
 
@@ -124,6 +126,8 @@ app.use("/api/products", productRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/support", supportRoutes);
+app.use("/api/coupons", couponRoutes);
+app.use("/api/import", importRoutes);
 
 /* =========================
    Error Handler

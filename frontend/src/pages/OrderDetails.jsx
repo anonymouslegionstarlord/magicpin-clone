@@ -9,6 +9,9 @@ function OrderDetails() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState("");
+    const [canManage, setCanManage] = useState(false);
+    const [updatingStatus, setUpdatingStatus] = useState(false);
+    const [statusMessage, setStatusMessage] = useState("");
 
     // ==========================================
     // ORDER STATUS FLOW
@@ -168,6 +171,9 @@ function OrderDetails() {
                 );
 
                 setOrder(response.data.order);
+                setCanManage(
+                    response.data.canManage === true
+                );
 
             } catch (error) {
                 console.log(
@@ -202,6 +208,42 @@ function OrderDetails() {
             clearTimeout(timer);
         };
     }, [fetchOrder]);
+
+
+    // ==========================================
+    // ADMIN STATUS UPDATE
+    // ==========================================
+
+    const updateOrderStatus = async (status) => {
+        try {
+            setUpdatingStatus(true);
+            setStatusMessage("");
+
+            const token = localStorage.getItem("token");
+            const response = await API.put(
+                `/orders/${id}/status`,
+                { status },
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
+                }
+            );
+
+            setOrder(response.data.order);
+            setStatusMessage(
+                response.data.message ||
+                "Order status updated"
+            );
+        } catch (error) {
+            setStatusMessage(
+                error.response?.data?.message ||
+                "Unable to update order status"
+            );
+        } finally {
+            setUpdatingStatus(false);
+        }
+    };
 
 
     // ==========================================
@@ -365,6 +407,10 @@ function OrderDetails() {
         order.deliveryFee || 0
     );
 
+    const discount = Number(
+        order.discount || 0
+    );
+
     const total = Number(
         order.total || subtotal + deliveryFee
     );
@@ -444,10 +490,16 @@ function OrderDetails() {
                             </button>
 
                             <Link
-                                to="/orders"
+                                to={
+                                    canManage
+                                        ? "/owner/orders"
+                                        : "/orders"
+                                }
                                 className="glass-orange inline-flex items-center justify-center rounded-xl px-5 py-3 text-sm font-black"
                             >
-                                ← My Orders
+                                {canManage
+                                    ? "← Admin Orders"
+                                    : "← My Orders"}
                             </Link>
 
                         </div>
@@ -455,6 +507,63 @@ function OrderDetails() {
                     </div>
 
                 </div>
+
+
+                {canManage && (
+                    <div className="glass-strong mt-6 rounded-2xl border border-orange-200/70 p-5 shadow-lg">
+                        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+                            <div>
+                                <p className="text-xs font-black uppercase tracking-[0.2em] text-orange-500">
+                                    Atlas Admin Controls
+                                </p>
+                                <p className="mt-2 font-black text-gray-900">
+                                    {order.user?.name || "Customer"}
+                                </p>
+                                <p className="text-sm text-gray-500">
+                                    {order.user?.email || "Email unavailable"}
+                                </p>
+                            </div>
+
+                            <div className="min-w-64">
+                                <label
+                                    htmlFor="admin-order-status"
+                                    className="mb-2 block text-xs font-black uppercase tracking-wider text-gray-500"
+                                >
+                                    Manage status
+                                </label>
+                                <select
+                                    id="admin-order-status"
+                                    value={order.status}
+                                    onChange={(event) =>
+                                        updateOrderStatus(
+                                            event.target.value
+                                        )
+                                    }
+                                    disabled={updatingStatus}
+                                    className="glass-input w-full rounded-xl px-4 py-3 font-bold text-gray-800 outline-none disabled:opacity-60"
+                                >
+                                    {[
+                                        ...statusFlow,
+                                        "cancelled"
+                                    ].map((status) => (
+                                        <option
+                                            key={status}
+                                            value={status}
+                                        >
+                                            {getStatusLabel(status)}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+
+                        {statusMessage && (
+                            <p className="mt-3 text-sm font-bold text-orange-700">
+                                {statusMessage}
+                            </p>
+                        )}
+                    </div>
+                )}
 
 
                 {/* ==========================================
@@ -1050,6 +1159,21 @@ function OrderDetails() {
                             </div>
 
 
+                            {discount > 0 && (
+                                <div className="flex justify-between text-sm text-green-700">
+                                    <span>
+                                        Coupon {order.couponCode
+                                            ? `(${order.couponCode})`
+                                            : "discount"}
+                                    </span>
+
+                                    <span className="font-black">
+                                        -₹{discount.toFixed(2)}
+                                    </span>
+                                </div>
+                            )}
+
+
                             <div className="flex justify-between text-sm">
 
                                 <span className="text-gray-500">
@@ -1242,10 +1366,16 @@ function OrderDetails() {
                 <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
 
                     <Link
-                        to="/orders"
+                        to={
+                            canManage
+                                ? "/owner/orders"
+                                : "/orders"
+                        }
                         className="glass-button inline-flex items-center justify-center rounded-xl px-7 py-3.5 font-black text-gray-700"
                     >
-                        ← Back to My Orders
+                        {canManage
+                            ? "← Back to Admin Orders"
+                            : "← Back to My Orders"}
                     </Link>
 
                     <Link
