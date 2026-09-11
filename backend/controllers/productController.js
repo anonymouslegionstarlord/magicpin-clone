@@ -158,6 +158,55 @@ const getProductsForAdmin = async (req, res) => {
     }
 };
 
+const getAllProductsForAdmin = async (req, res) => {
+    try {
+        const stores = await Store.find({
+            isArchived: { $ne: true }
+        }).sort({ createdAt: -1 });
+
+        if (stores.length === 0) {
+            return res.status(200).json({
+                success: true,
+                count: 0,
+                restaurants: []
+            });
+        }
+
+        const storeIds = stores.map((store) => store._id);
+        const products = await Product.find({
+            store: { $in: storeIds }
+        }).sort({ createdAt: -1 });
+
+        const productsByStore = new Map();
+
+        products.forEach((product) => {
+            const storeId = product.store.toString();
+            const storeProducts = productsByStore.get(storeId) || [];
+
+            storeProducts.push(product);
+            productsByStore.set(storeId, storeProducts);
+        });
+
+        const restaurants = stores.map((store) => ({
+            store,
+            products: productsByStore.get(store._id.toString()) || []
+        }));
+
+        res.status(200).json({
+            success: true,
+            count: products.length,
+            restaurants
+        });
+    } catch (error) {
+        console.log("Get all admin menus error:", error);
+
+        res.status(500).json({
+            success: false,
+            message: "Server error"
+        });
+    }
+};
+
 const updateProduct = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id).populate("store");
@@ -359,6 +408,7 @@ module.exports = {
     createProduct,
     getProductsByStore,
     getProductsForAdmin,
+    getAllProductsForAdmin,
     updateProduct,
     deleteProduct,
     toggleProductAvailability

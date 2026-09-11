@@ -81,8 +81,10 @@ function OwnerStore() {
     const [stores, setStores] = useState([]);
     const [selectedStoreId, setSelectedStoreId] = useState("");
     const [products, setProducts] = useState([]);
+    const [allMenus, setAllMenus] = useState([]);
     const [loading, setLoading] = useState(true);
     const [loadingProducts, setLoadingProducts] = useState(false);
+    const [loadingAllMenus, setLoadingAllMenus] = useState(false);
 
     const [formMode, setFormMode] = useState(() =>
         requestedAction === "add" ? "create" : ""
@@ -108,6 +110,27 @@ function OwnerStore() {
     const selectedStore = stores.find(
         (item) => item._id === selectedStoreId
     ) || null;
+
+    const refreshAllMenus = useCallback(async () => {
+        try {
+            setLoadingAllMenus(true);
+
+            const response = await API.get("/products/manage/all", {
+                headers: getAuthHeaders()
+            });
+
+            setAllMenus(response.data.restaurants || []);
+        } catch (requestError) {
+            console.log("Load all restaurant menus error:", requestError);
+            setAllMenus([]);
+            setError(
+                requestError.response?.data?.message ||
+                "Failed to load all restaurant menus"
+            );
+        } finally {
+            setLoadingAllMenus(false);
+        }
+    }, []);
 
     const refreshStores = useCallback(
         async (preferredStoreId = "") => {
@@ -137,9 +160,11 @@ function OwnerStore() {
                 return nextStores[0]?._id || "";
             });
 
+            await refreshAllMenus();
+
             return nextStores;
         },
-        [navigate]
+        [navigate, refreshAllMenus]
     );
 
     useEffect(() => {
@@ -386,6 +411,11 @@ function OwnerStore() {
 
             setStores(remainingStores);
             setSelectedStoreId(remainingStores[0]?._id || "");
+            setAllMenus((currentMenus) =>
+                currentMenus.filter(
+                    ({ store }) => store._id !== selectedStore._id
+                )
+            );
             setFormMode("");
             setSuccess(response.data.message);
         } catch (requestError) {
@@ -456,6 +486,7 @@ function OwnerStore() {
             setProducts((current) =>
                 current.filter((item) => item._id !== product._id)
             );
+            await refreshAllMenus();
             setSuccess(response.data.message);
         } catch (requestError) {
             setError(
@@ -710,6 +741,166 @@ function OwnerStore() {
                                     </div>
                                 ))}
                             </div>
+                        </div>
+                    )}
+                </section>
+
+                <section className="glass-strong mt-6 rounded-[2rem] p-6 shadow-xl md:p-8">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                            <p className="text-xs font-black uppercase tracking-[0.2em] text-orange-500">
+                                Complete Menu View
+                            </p>
+                            <h2 className="mt-1 text-2xl font-black text-gray-900">
+                                All Restaurant Menus
+                            </h2>
+                            <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-500">
+                                View every restaurant and its food items in one place. Add items to a specific restaurant or open its full menu to edit and remove them.
+                            </p>
+                        </div>
+
+                        <Link
+                            to="/owner/products"
+                            className="glass-button inline-flex shrink-0 items-center justify-center rounded-xl px-5 py-3 text-sm font-black text-gray-700"
+                        >
+                            Manage All Food Items
+                        </Link>
+                    </div>
+
+                    {loadingAllMenus ? (
+                        <div className="mt-6 rounded-2xl border border-white/70 bg-white/30 p-8 text-center">
+                            <div className="mx-auto h-9 w-9 animate-spin rounded-full border-4 border-orange-200 border-t-orange-600" />
+                            <p className="mt-3 text-sm font-bold text-gray-500">
+                                Loading all restaurant menus...
+                            </p>
+                        </div>
+                    ) : allMenus.length === 0 ? (
+                        <div className="mt-6 rounded-2xl border border-dashed border-orange-200 bg-orange-50/40 p-8 text-center">
+                            <div className="text-4xl">🍽️</div>
+                            <p className="mt-3 font-black text-gray-900">
+                                No restaurant menus yet
+                            </p>
+                            <p className="mt-1 text-sm text-gray-500">
+                                Add a restaurant, then add its food items from the buttons above.
+                            </p>
+                            <div className="mt-5 flex flex-wrap justify-center gap-3">
+                                <button
+                                    type="button"
+                                    onClick={startCreate}
+                                    className="glass-orange rounded-xl px-5 py-3 text-sm font-black"
+                                >
+                                    + Add Restaurant
+                                </button>
+                                <Link
+                                    to="/owner/products?action=add"
+                                    className="glass-button rounded-xl px-5 py-3 text-sm font-black text-gray-700"
+                                >
+                                    + Add Food Item
+                                </Link>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="mt-6 grid gap-5 xl:grid-cols-2">
+                            {allMenus.map(({ store, products: menuItems }) => (
+                                <article
+                                    key={store._id}
+                                    className="glass overflow-hidden rounded-2xl"
+                                >
+                                    <div className="flex items-center gap-4 border-b border-white/70 p-4">
+                                        <div className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-orange-100/70 text-3xl">
+                                            🏪
+                                            {store.image && (
+                                                <img
+                                                    src={store.image}
+                                                    alt=""
+                                                    className="absolute inset-0 h-full w-full object-cover"
+                                                />
+                                            )}
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <h3 className="truncate font-black text-gray-900">
+                                                    {store.name}
+                                                </h3>
+                                                <span className={`rounded-full px-2 py-1 text-[10px] font-black ${
+                                                    store.isActive
+                                                        ? "bg-green-50 text-green-700"
+                                                        : "bg-red-50 text-red-700"
+                                                }`}>
+                                                    {store.isActive ? "Open" : "Closed"}
+                                                </span>
+                                            </div>
+                                            <p className="mt-1 text-xs font-bold text-gray-500">
+                                                {menuItems.length} food item{menuItems.length === 1 ? "" : "s"}
+                                            </p>
+                                        </div>
+                                        <Link
+                                            to={`/owner/products?store=${store._id}&action=add`}
+                                            className="glass-orange shrink-0 rounded-xl px-3 py-2 text-xs font-black"
+                                        >
+                                            + Add
+                                        </Link>
+                                    </div>
+
+                                    <div className="p-4">
+                                        {menuItems.length === 0 ? (
+                                            <div className="rounded-xl border border-dashed border-orange-200 bg-orange-50/40 p-5 text-center">
+                                                <p className="text-sm font-black text-gray-800">
+                                                    No food items added yet
+                                                </p>
+                                                <Link
+                                                    to={`/owner/products?store=${store._id}&action=add`}
+                                                    className="mt-2 inline-flex text-sm font-black text-orange-600"
+                                                >
+                                                    Add the first item →
+                                                </Link>
+                                            </div>
+                                        ) : (
+                                            <div className="grid gap-2 sm:grid-cols-2">
+                                                {menuItems.map((item) => (
+                                                    <div
+                                                        key={item._id}
+                                                        className="flex min-w-0 items-center gap-3 rounded-xl bg-white/35 p-2.5"
+                                                    >
+                                                        <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-orange-100/70 text-lg">
+                                                            🍽️
+                                                            {item.image && (
+                                                                <img
+                                                                    src={item.image}
+                                                                    alt=""
+                                                                    className="absolute inset-0 h-full w-full object-cover"
+                                                                />
+                                                            )}
+                                                        </div>
+                                                        <div className="min-w-0 flex-1">
+                                                            <p className="truncate text-sm font-black text-gray-900">
+                                                                {item.name}
+                                                            </p>
+                                                            <p className="text-xs font-bold text-orange-600">
+                                                                ₹{Number(item.price || 0).toFixed(0)}
+                                                            </p>
+                                                        </div>
+                                                        <span className={`text-[10px] font-black ${
+                                                            item.isAvailable
+                                                                ? "text-green-700"
+                                                                : "text-red-600"
+                                                        }`}>
+                                                            {item.isAvailable ? "Available" : "Off"}
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        <Link
+                                            to={`/owner/products?store=${store._id}`}
+                                            className="mt-4 inline-flex text-sm font-black text-orange-600"
+                                        >
+                                            Manage {store.name} menu →
+                                        </Link>
+                                    </div>
+                                </article>
+                            ))}
                         </div>
                     )}
                 </section>

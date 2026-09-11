@@ -7,6 +7,7 @@ const {
     createProduct,
     getProductsByStore,
     getProductsForAdmin,
+    getAllProductsForAdmin,
     updateProduct,
     deleteProduct,
     toggleProductAvailability
@@ -15,6 +16,13 @@ const {
 const router = express.Router();
 
 router.post("/", protect, requireAdmin, createProduct);
+
+router.get(
+    "/manage/all",
+    protect,
+    requireAdmin,
+    getAllProductsForAdmin
+);
 
 router.get(
     "/store/:storeId/manage",
